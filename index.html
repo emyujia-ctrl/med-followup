@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>用药随访</title>
+<meta name="description" content="患者用药周期与不良反应随访记录，数据仅存本机" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<meta name="theme-color" content="#0f5132" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="用药随访" />
+<meta name="format-detection" content="telephone=no" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<link rel="icon" href="./icons/icon-192.png" />
+<style>
+  :root {
+    --green-900: #0f5132;
+    --green-700: #16694a;
+    --green-500: #1b7a55;
+    --purple: #5a2f92;
+    --purple-light: #f3ecfb;
+    --ink: #16261f;
+    --ink-2: #3d4d45;
+    --ink-3: #59706a;
+    --muted: #93a09a;
+    --line: #eef2f0;
+    --bg: #f4f6f5;
+    --danger: #d94a4a;
+    --amber: #e08b00;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #dfeae4 0%, #eef1ef 45%, #e9ecea 100%);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 56px;
+  }
+  .page-title {
+    text-align: center;
+    margin-bottom: 22px;
+  }
+  .page-title h1 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: 0.5px;
+    color: #1d3029;
+  }
+  .page-title p {
+    margin: 0;
+    font-size: 12px;
+    color: #7d8e86;
+    letter-spacing: 0.3px;
+  }
+
+  .stage { display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  .phone {
+    position: relative;
+    width: 390px;
+    height: 800px;
+    background: #fff;
+    border-radius: 44px;
+    box-shadow: 0 40px 80px -30px rgba(15, 60, 40, 0.45), 0 0 0 10px #1a1d1c, 0 0 0 12px #33383a;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .statusbar {
+    height: 44px;
+    flex: 0 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 26px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--green-900);
+    position: relative;
+    z-index: 5;
+  }
+  .statusbar.light { background: var(--green-900); }
+  .statusbar .right { display: flex; gap: 4px; align-items: center; font-size: 11px; letter-spacing: 0.5px; }
+
+  .app {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg);
+    scrollbar-width: none;
+  }
+  .app::-webkit-scrollbar { display: none; }
+
+  /* ============ 通用 ============ */
+  .hero {
+    background: linear-gradient(135deg, #0f5132 0%, #16694a 55%, #1b7a55 100%);
+    padding: 18px 18px 46px;
+    border-radius: 0 0 22px 22px;
+    color: #fff;
+  }
+  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .hero-title { font-size: 21px; font-weight: 600; letter-spacing: 0.5px; }
+  .hero-sub { margin-top: 5px; font-size: 12px; color: rgba(255,255,255,0.7); }
+  .hero-pill {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.22);
+    color: #eaf6f0;
+    font-size: 11px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .hero-stats {
+    display: flex;
+    align-items: center;
+    margin-top: 16px;
+    background: rgba(255,255,255,0.13);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px;
+    padding: 13px 0;
+  }
+  .hs { flex: 1; text-align: center; }
+  .hs-num { font-size: 23px; font-weight: 700; line-height: 1.05; }
+  .hs-num.warn { color: #ffc9c0; }
+  .hs-label { margin-top: 4px; font-size: 11px; color: rgba(255,255,255,0.72); }
+  .hs-div { width: 1px; height: 26px; background: rgba(255,255,255,0.2); }
+
+  .tabs {
+    display: flex;
+    margin: -26px 12px 0;
+    padding: 5px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px rgba(15,81,50,0.12);
+    position: relative;
+    z-index: 3;
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 9px 0;
+    font-size: 13px; color: #6b7c74; border-radius: 10px; cursor: pointer;
+    transition: all .18s;
+  }
+  .tab.on { background: var(--green-900); color: #fff; font-weight: 600; }
+
+  .group { margin: 16px 12px 0; }
+  .group-hd { display: flex; align-items: center; padding: 0 4px 8px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: #9aa8a1; }
+  .dot.danger { background: var(--danger); }
+  .dot.today { background: var(--amber); }
+  .dot.soon { background: #1a7f6b; }
+  .dot.all { background: var(--green-900); }
+  .group-title { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+  .group-count {
+    margin-left: 6px; font-size: 11px; color: #8d9a93;
+    background: #e8ece9; border-radius: 999px; padding: 1px 7px;
+  }
+
+  .pcard {
+    background: #fff; border-radius: 14px; padding: 13px 12px; margin-bottom: 9px;
+    box-shadow: 0 3px 12px rgba(15,81,50,0.06);
+    cursor: pointer; transition: transform .12s, box-shadow .12s;
+  }
+  .pcard:active { transform: scale(0.985); box-shadow: 0 1px 6px rgba(15,81,50,0.08); }
+  .pc-row { display: flex; align-items: flex-start; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 12px; flex: 0 0 40px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 600; color: #fff; margin-right: 10px;
+  }
+  .avatar.green { background: linear-gradient(135deg, #1b7a55, #0f5132); }
+  .avatar.purple { background: linear-gradient(135deg, #7b4bb7, #5a2f92); }
+  .pc-main { flex: 1; min-width: 0; }
+  .pc-name-row { display: flex; align-items: baseline; }
+  .pc-name { font-size: 15.5px; font-weight: 600; }
+  .pc-meta { margin-left: 6px; font-size: 11px; color: var(--muted); }
+  .pc-drug { margin-top: 3px; font-size: 12px; color: var(--ink-3); }
+  .pc-tags { display: flex; flex-wrap: wrap; margin-top: 6px; gap: 5px; }
+  .tag {
+    font-size: 10px; color: #5b6f68; background: #f0f4f2;
+    border-radius: 5px; padding: 2px 6px;
+  }
+  .tag.fra { color: var(--purple); background: var(--purple-light); }
+  .tag.regimen { color: #1a6b57; background: #eaf5f1; }
+  .pc-right { text-align: right; margin-left: 8px; flex: 0 0 auto; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+  .badge.danger { color: #c33a3a; background: #fdecec; }
+  .badge.today { color: #a86400; background: #fdf2df; }
+  .badge.soon { color: #12705c; background: #e6f4f0; }
+  .badge.later { color: #7d8b84; background: #f0f3f2; }
+  .badge.off { color: #7d8b84; background: #eef1ef; }
+  .dot.off { background: #b0b8b4; }
+  .bar-fill.grey { background: linear-gradient(90deg, #b9c3bf, #8d9a95); }
+  .tag.off { color: #7d8b84; background: #eef1ef; }
+  .pcard.is-off .pc-name,
+  .pcard.is-off .pc-drug { color: #8d9a95; }
+  .pcard.is-off .avatar { opacity: .55; }
+
+  /* 随访状态 */
+  .status-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 2px; }
+  .status-left { display: flex; align-items: center; flex: 1; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
+  .status-dot.on { background: #1a7f6b; }
+  .status-dot.off { background: #b0b8b4; }
+  .status-text { font-size: 13.5px; font-weight: 600; color: #1d2f28; }
+  .status-note { font-size: 10.5px; color: #8a9a93; margin-top: 2px; }
+  .status-btn { flex-shrink: 0; margin-left: 8px; padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .status-btn.off { color: #b4452f; background: #fdeee9; border: 1px solid #f3d5cc; }
+  .status-btn.on { color: #0f5132; background: #eaf5f1; border: 1px solid #cfe3d8; }
+  .status-tip { font-size: 10.5px; color: #9aa8a2; line-height: 1.6; margin-top: 7px; }
+  .next-box.off { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.16); }
+  .next-box.off .nb-date, .next-box.off .nb-day { color: rgba(255,255,255,.82); }
+  .next-box.off .nb-week, .next-box.off .nb-status { color: rgba(255,255,255,.55); }
+
+  /* 撤销 */
+  .undo-row { margin-top: 9px; padding-top: 9px; border-top: 1px dashed #ecefed; text-align: center; font-size: 11px; }
+  .undo-text { color: #9aa8a2; }
+  .undo-link { color: #b4452f; font-weight: 600; margin-left: 5px; text-decoration: underline; cursor: pointer; }
+  .tl-undo { margin-left: auto; font-size: 10.5px; color: #b4452f; padding: 2px 7px; border-radius: 5px; background: #fdeee9; cursor: pointer; }
+
+  /* 底部选择面板 */
+  #sheet { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+  #sheet.show { pointer-events: auto; }
+  .sheet-mask { position: absolute; inset: 0; background: rgba(12, 30, 22, .38); animation: fadeIn .16s ease; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: #fff; border-radius: 16px 16px 0 0;
+    padding: 16px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -6px 24px rgba(15, 40, 30, .18);
+    animation: sheetUp .2s ease;
+    max-height: 82vh; overflow-y: auto;
+  }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .sheet-title { font-size: 15px; font-weight: 700; color: var(--green-900); text-align: center; }
+  .sheet-desc { font-size: 11.5px; color: #8a9a93; line-height: 1.6; text-align: center; margin: 6px 0 12px; }
+  .sheet-opts { border-radius: 11px; overflow: hidden; background: #f7faf8; }
+  .sheet-opt { padding: 13px 14px; font-size: 13.5px; color: #1d2f28; text-align: center; border-bottom: 1px solid #eef2f0; cursor: pointer; }
+  .sheet-opt:last-child { border-bottom: none; }
+  .sheet-opt:active { background: #eef4f1; }
+  .sheet-opt.danger { color: #c0392b; font-weight: 600; }
+  .sheet-cancel { margin-top: 9px; padding: 13px 0; text-align: center; font-size: 13.5px; color: #6b7d76; background: #f2f5f3; border-radius: 11px; cursor: pointer; }
+
+  .pc-next { margin-top: 5px; font-size: 11px; color: var(--muted); }
+
+  .empty { text-align: center; padding: 50px 30px; }
+  .empty-icon {
+    width: 62px; height: 62px; border-radius: 20px; background: #e7efeb; color: #7fa695;
+    font-size: 28px; line-height: 62px; margin: 0 auto 12px;
+  }
+  .empty-t { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+  .empty-s { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .empty-btn {
+    display: inline-block; margin-top: 16px; padding: 8px 22px;
+    background: var(--green-900); color: #fff; border-radius: 999px; font-size: 13px; cursor: pointer;
+  }
+  .foot-tip { text-align: center; font-size: 11px; color: #a8b3ad; padding: 14px 0 6px; }
+
+  .fab {
+    position: absolute; right: 18px; bottom: 22px;
+    width: 54px; height: 54px; border-radius: 50%;
+    background: linear-gradient(135deg, #1b7a55, #0f5132);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 26px; font-weight: 300;
+    box-shadow: 0 12px 24px rgba(15,81,50,0.34);
+    cursor: pointer; z-index: 20;
+    transition: transform .15s;
+  }
+  .fab:active { transform: scale(0.94); }
+
+  /* ============ 统计 ============ */
+  .stat-grid { display: flex; flex-wrap: wrap; gap: 9px; margin: 16px 12px 0; }
+  .stat-box {
+    width: calc(50% - 4.5px); background: #fff; border-radius: 14px; padding: 14px 12px;
+    box-shadow: 0 3px 12px rgba(15,81,50,0.06);
+  }
+  .sb-num { font-size: 24px; font-weight: 700; color: var(--green-900); line-height: 1.1; }
+  .sb-num.warn { color: var(--danger); }
+  .sb-label { margin-top: 4px; font-size: 11px; color: var(--muted); }
+
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 3px 12px rgba(15,81,50,0.06); }
+  .sec { margin: 10px 12px 0; padding: 14px 13px; }
+  .sec-title { font-size: 13px; font-weight: 600; color: #23342c; margin-bottom: 11px; }
+  .sec-sub { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 5px; }
+  .bar-row { display: flex; align-items: center; margin-bottom: 9px; }
+  .bar-name { width: 76px; font-size: 11.5px; color: var(--ink-3); }
+  .bar-track { flex: 1; height: 8px; background: #eef2f0; border-radius: 999px; overflow: hidden; margin: 0 8px; }
+  .bar-fill { height: 100%; border-radius: 999px; min-width: 3px; transition: width .5s ease; }
+  .bar-fill.green { background: linear-gradient(90deg, #1b7a55, #0f5132); }
+  .bar-fill.teal { background: linear-gradient(90deg, #35a3a0, #1a7f6b); }
+  .bar-fill.purple { background: linear-gradient(90deg, #8b5cc7, #5a2f92); }
+  .bar-val { width: 44px; text-align: right; font-size: 11.5px; color: var(--ink-2); }
+
+  .set-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 0; border-bottom: 1px solid var(--line);
+  }
+  .set-row:last-of-type { border-bottom: none; }
+  .set-label { font-size: 12.5px; color: var(--ink-2); }
+  .set-input {
+    border: none; outline: none; text-align: right; font-size: 12.5px;
+    width: 150px; font-family: inherit; color: var(--ink); background: transparent;
+  }
+  .set-note { margin-top: 9px; font-size: 10.5px; color: var(--muted); line-height: 1.65; }
+
+  .btn-row { display: flex; gap: 9px; }
+  .btn {
+    flex: 1; text-align: center; padding: 10px 0; border-radius: 10px;
+    font-size: 12.5px; cursor: pointer;
+  }
+  .btn.ghost { background: #eaf3ef; color: var(--green-900); }
+  .btn.danger-ghost { background: #fdeeee; color: #c33a3a; }
+
+  /* ============ 详情 ============ */
+  .nav {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: var(--green-900); color: #fff;
+  }
+  .nav-back {
+    width: 28px; height: 28px; border-radius: 9px; background: rgba(255,255,255,0.14);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px;
+  }
+  .nav-title { font-size: 14px; font-weight: 600; }
+  .nav-right { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.85); cursor: pointer; }
+
+  .head { background: linear-gradient(135deg,#0f5132,#16694a 60%,#1b7a55); padding: 14px 14px 16px; color: #fff; border-radius: 0 0 20px 20px; }
+  .head-top { display: flex; align-items: center; }
+  .head .avatar { background: rgba(255,255,255,0.22); width: 44px; height: 44px; flex: 0 0 44px; border-radius: 13px; font-size: 19px; }
+  .head-name { font-size: 19px; font-weight: 600; }
+  .head-meta { margin-top: 4px; font-size: 11.5px; color: rgba(255,255,255,0.72); }
+  .next-box {
+    margin-top: 13px; background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 13px; padding: 13px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .next-box.danger { background: rgba(217,74,74,0.28); border-color: rgba(255,200,195,0.5); }
+  .nb-label { font-size: 11px; color: rgba(255,255,255,0.7); }
+  .nb-date { margin-top: 5px; font-size: 17px; font-weight: 600; }
+  .nb-week { margin-top: 4px; font-size: 11px; color: rgba(255,255,255,0.66); }
+  .nb-right { text-align: right; }
+  .nb-day { font-size: 20px; font-weight: 700; }
+  .nb-status { margin-top: 3px; font-size: 11px; color: rgba(255,255,255,0.75); }
+  .manual-tip { margin-top: 8px; font-size: 10.5px; color: rgba(255,255,255,0.78); }
+  .manual-link { margin-left: 6px; color: #fff; text-decoration: underline; cursor: pointer; }
+
+  .kv-grid { display: flex; flex-wrap: wrap; }
+  .kv { width: 50%; padding: 7px 0; }
+  .kv-k { font-size: 10.5px; color: var(--muted); }
+  .kv-v { margin-top: 4px; font-size: 13px; font-weight: 500; }
+  .kv-v.purple { color: var(--purple); }
+  .kv-v.empty { color: #b0bab5; font-weight: 400; }
+  .remark { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--ink-3); line-height: 1.6; }
+
+  .act-grid { display: flex; flex-wrap: wrap; margin: 0 -4px; }
+  .act-cell { width: 50%; padding: 4px; }
+  .act { background: #f7faf8; border-radius: 11px; padding: 13px 8px; text-align: center; cursor: pointer; }
+  .act.primary { background: linear-gradient(135deg,#1b7a55,#0f5132); }
+  .act-icon {
+    width: 28px; height: 28px; margin: 0 auto 6px; border-radius: 9px;
+    background: #e7efeb; color: var(--green-900); font-size: 12px; font-weight: 600;
+    line-height: 28px; text-align: center;
+  }
+  .act.primary .act-icon { background: rgba(255,255,255,0.22); color: #fff; }
+  .act-t { font-size: 11.5px; color: var(--ink-2); }
+  .act.primary .act-t { color: #fff; font-weight: 600; }
+
+  .tl-item { display: flex; }
+  .tl-axis { width: 20px; display: flex; flex-direction: column; align-items: center; padding-top: 5px; }
+  .tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-500); flex: 0 0 8px; }
+  .tl-line { width: 1px; flex: 1; background: #e4ebe7; margin: 4px 0; }
+  .tl-body { flex: 1; padding: 0 0 13px 6px; }
+  .tl-row { display: flex; align-items: baseline; }
+  .tl-date { font-size: 12.5px; font-weight: 500; }
+  .tl-label { margin-left: 7px; font-size: 10px; color: var(--muted); background: #f0f4f2; border-radius: 4px; padding: 2px 6px; }
+  .tl-gap { margin-top: 4px; font-size: 10px; color: #a3aea8; }
+
+  /* ============ 表单 ============ */
+  .sec-title-row { padding: 14px 16px 7px; }
+  .sec-title-row span { font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.5px; }
+  .drug-row { display: flex; gap: 10px; padding: 0 12px; }
+  .drug-card {
+    position: relative; flex: 1; background: #fff; border: 1.5px solid #e8ede9;
+    border-radius: 14px; padding: 13px 12px; cursor: pointer; transition: all .18s;
+  }
+  .drug-card.on.green { border-color: var(--green-900); background: #f2f9f5; }
+  .drug-card.on.purple { border-color: var(--purple); background: #f8f4fd; }
+  .dc-short {
+    width: 26px; height: 26px; border-radius: 8px; background: #eef2f0; color: var(--ink-3);
+    font-size: 13px; font-weight: 600; text-align: center; line-height: 26px;
+  }
+  .drug-card.on.green .dc-short { background: var(--green-900); color: #fff; }
+  .drug-card.on.purple .dc-short { background: var(--purple); color: #fff; }
+  .dc-name { margin-top: 8px; font-size: 15px; font-weight: 600; }
+  .dc-sub { margin-top: 3px; font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .dc-check {
+    position: absolute; top: 10px; right: 11px; width: 17px; height: 17px; border-radius: 50%;
+    color: #fff; font-size: 11px; text-align: center; line-height: 17px;
+  }
+  .drug-card.on.green .dc-check { background: var(--green-900); }
+  .drug-card.on.purple .dc-check { background: var(--purple); }
+
+  .form-card { margin: 8px 12px 0; padding: 3px 13px; }
+  .fr { display: flex; align-items: center; justify-content: space-between; min-height: 46px; border-bottom: 1px solid #f2f5f3; }
+  .form-card .fr:last-child { border-bottom: none; }
+  .fl { font-size: 12.5px; color: var(--ink-2); flex: 0 0 auto; margin-right: 10px; }
+  .req { color: var(--danger); }
+  .fi {
+    flex: 1; border: none; outline: none; text-align: right; font-size: 12.5px;
+    color: var(--ink); background: transparent; font-family: inherit; min-width: 0;
+  }
+  .fi.short { width: 70px; flex: 0 0 70px; }
+  .unit { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  .picker-val { font-size: 12.5px; cursor: pointer; color: var(--ink); }
+  .fr-tip { padding: 7px 0 9px; font-size: 10.5px; color: #a3aea8; line-height: 1.55; border-top: 1px dashed #f2f5f3; }
+  .seg { display: flex; background: #f2f5f3; border-radius: 7px; padding: 2px; }
+  .seg-item { width: 42px; text-align: center; padding: 5px 0; font-size: 12px; color: var(--ink-3); border-radius: 5px; cursor: pointer; }
+  .seg-item.on { background: #fff; color: var(--green-900); font-weight: 600; box-shadow: 0 1px 4px rgba(15,81,50,0.08); }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 5px 0 9px; }
+  .chip { font-size: 11px; color: var(--purple); background: var(--purple-light); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+  .ta {
+    width: 100%; min-height: 74px; border: none; outline: none; resize: none;
+    font-size: 12.5px; padding: 10px 0; line-height: 1.6; font-family: inherit; color: var(--ink);
+  }
+  .danger-zone { margin: 16px 12px 0; }
+  .dz-btn { text-align: center; padding: 12px 0; background: #fdeeee; color: #c33a3a; border-radius: 12px; font-size: 12.5px; cursor: pointer; }
+  .form-space { height: 80px; }
+  .footer {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 14px 16px;
+    background: rgba(255,255,255,0.97); border-top: 1px solid var(--line);
+  }
+  .save-btn {
+    height: 46px; line-height: 46px; text-align: center; border-radius: 13px;
+    background: linear-gradient(135deg,#1b7a55,#0f5132); color: #fff;
+    font-size: 14.5px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 8px 18px rgba(15,81,50,0.26);
+  }
+
+  /* toast */
+  .toast {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: rgba(20,32,26,0.88); color: #fff; padding: 11px 18px; border-radius: 10px;
+    font-size: 12.5px; z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s;
+    max-width: 240px; text-align: center; line-height: 1.5;
+  }
+  .toast.show { opacity: 1; }
+
+  .side-notes {
+    width: 300px; font-size: 12.5px; color: #40534b; line-height: 1.85;
+  }
+  .side-notes h3 { font-size: 13.5px; margin: 0 0 10px; color: #1d3029; }
+  .side-notes ul { padding-left: 16px; margin: 0 0 16px; }
+  .side-notes li { margin-bottom: 5px; }
+  .side-notes code {
+    background: #e3ece7; padding: 1px 5px; border-radius: 4px; font-size: 11px;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  .note-box {
+    background: rgba(255,255,255,0.75); border: 1px solid #dde6e1; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 12px;
+  }
+  .note-box b { color: #14533a; }
+  @media (max-width: 780px) { .side-notes { width: 100%; max-width: 390px; } }
+
+  /* ===== 铂敏感/铂耐药 · 不良反应随访 ===== */
+  .kv-v.platinum-s { color: #1a7f6b; }
+  .kv-v.platinum-r { color: #b4452f; }
+  .tag.ae { color: #b4452f; background: #fdeee9; }
+
+  .ae-stat { display: flex; padding: 6px 0 2px; }
+  .ae-stat-box { flex: 1; text-align: center; border-right: 1px solid var(--line); }
+  .ae-stat-box:last-child { border-right: none; }
+  .asb-num { font-size: 19px; font-weight: 700; color: #0f5132; line-height: 1.2; }
+  .asb-num.warn { color: #c0392b; }
+  .asb-label { font-size: 10px; color: #8a9a93; margin-top: 3px; }
+
+  .ae-item { padding: 10px 9px; border-radius: 10px; background: #fafbfa; border: 1px solid #f0f3f1; margin-bottom: 7px; cursor: pointer; }
+  .ae-row { display: flex; align-items: center; }
+  .ae-grade { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-right: 6px; flex-shrink: 0; }
+  .ae-grade.low { color: #1a7f6b; background: #eaf5f1; }
+  .ae-grade.mid { color: #a9731a; background: #fdf3e2; }
+  .ae-grade.high { color: #b4452f; background: #fdeee9; }
+  .ae-terms { flex: 1; font-size: 13px; font-weight: 500; color: #1d2f28; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ae-arrow { color: #c3cdc8; font-size: 15px; margin-left: 4px; }
+  .ae-meta { font-size: 10.5px; color: #8a9a93; margin-top: 4px; }
+  .ae-outcome { margin-left: 6px; padding: 1px 5px; border-radius: 3px; font-size: 9.5px; }
+  .ae-outcome.open { color: #b4452f; background: #fdeee9; }
+  .ae-outcome.done { color: #1a7f6b; background: #eaf5f1; }
+  .ae-note { font-size: 11px; color: #6b7d76; margin-top: 4px; line-height: 1.5; }
+  .ae-empty { font-size: 11.5px; color: #9aa8a2; line-height: 1.6; padding: 5px 0 9px; }
+  .ae-add { margin-top: 3px; padding: 10px 0; text-align: center; font-size: 12.5px; font-weight: 600; color: #0f5132; background: #f2f9f5; border: 1px dashed #cfe3d8; border-radius: 8px; cursor: pointer; }
+
+  .ae-chips { display: flex; flex-wrap: wrap; padding: 9px 0 2px; }
+  .ae-chip { font-size: 12px; color: #4a5d55; background: #f2f5f3; border: 1px solid #e6ebe8; border-radius: 999px; padding: 6px 12px; margin: 0 7px 7px 0; cursor: pointer; }
+  .ae-chip.on { color: #fff; background: #0f5132; border-color: #0f5132; font-weight: 600; }
+  .ae-chip.single.on { background: #1a7f6b; border-color: #1a7f6b; }
+
+  .grade-row { display: flex; padding: 10px 0 4px; }
+  .grade-item { flex: 1; margin-right: 7px; padding: 9px 4px; border-radius: 8px; text-align: center; background: #f7f9f8; border: 1px solid #e9eeeb; cursor: pointer; }
+  .grade-item:last-child { margin-right: 0; }
+  .gi-label { font-size: 12.5px; font-weight: 600; color: #3d4d45; }
+  .gi-desc { font-size: 9.5px; color: #9aa8a2; margin-top: 2px; }
+  .grade-item.on { border-width: 2px; }
+  .grade-item.g1.on { background: #eaf5f1; border-color: #1a7f6b; }
+  .grade-item.g1.on .gi-label { color: #1a7f6b; }
+  .grade-item.g2.on { background: #fdf3e2; border-color: #c08a2a; }
+  .grade-item.g2.on .gi-label { color: #a9731a; }
+  .grade-item.g3.on { background: #fdeee9; border-color: #c0563f; }
+  .grade-item.g3.on .gi-label { color: #b4452f; }
+  .grade-item.g4.on { background: #fbe6e1; border-color: #8f2f1d; }
+  .grade-item.g4.on .gi-label { color: #8f2f1d; }
+
+  /* ================= PWA / 手机全屏 ================= */
+  .import-input { display: none; }
+  .set-tip { font-size: 10.5px; color: var(--muted); line-height: 1.7; margin-top: 9px; }
+  .btn-sub { font-size: 11px; color: var(--muted); margin-top: 6px; text-align: center; }
+  .ver-tip { text-align: center; font-size: 10px; color: #a7b3ae; padding: 16px 0 6px; letter-spacing: .3px; }
+
+  @media (max-width: 540px) {
+    body { padding: 0; background: #fff; display: block; min-height: 100%; }
+    .page-title { display: none; }
+    .phone {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    /* 用系统真实状态栏，隐藏模拟状态栏 */
+    .statusbar { display: none; }
+    .hero { padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+    .nav { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+    .fab { bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+    .foot-tip { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+    .toast { bottom: calc(34px + env(safe-area-inset-bottom, 0px)); }
+  }
+
+  @media (display-mode: standalone) and (min-width: 541px) {
+    body { padding: 0; }
+    .page-title { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <h1>用药提醒 · 交互预览</h1>
+  <p>塞纳帕利 30 天 / 索米妥昔单抗 21 天 · 数据存本地，可随意点击体验</p>
+</div>
+
+<div class="stage">
+  <div class="phone">
+    <div class="statusbar light">
+      <span id="clock">9:41</span>
+      <span class="right">●●● <span style="opacity:.8">WiFi</span> 100%</span>
+    </div>
+    <div class="app" id="app"></div>
+    <input class="import-input" type="file" id="import-file" accept=".json,application/json" onchange="doImport(this)" />
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="side-notes">
+    <div class="note-box">
+      <b>这是小程序原型预览</b><br>
+      点击患者卡片进入详情，右下角 ＋ 新增记录。所有数据保存在浏览器本地，刷新不丢。
+    </div>
+    <h3>已实现的功能</h3>
+    <ul>
+      <li>按「末次用药 + 周期」自动推算下次用药日</li>
+      <li>待办自动分成 逾期 / 今日 / 7 天内 / 后续</li>
+      <li>患者姓名自动缩写：李桂英 → 李gy</li>
+      <li>用药档案：铂敏感/铂耐药、FRα 表达率、用药备注</li>
+      <li>不良反应随访：类型多选 + CTCAE 分级 + 处理措施 + 转归</li>
+      <li>记录用药、按日期补录、顺延下次用药</li>
+      <li>患者维度统计 + FRα 表达分布 + 不良反应汇总</li>
+    </ul>
+    <h3>正式版在哪</h3>
+    <ul>
+      <li><code>patient-med-reminder/</code> 是完整小程序源码</li>
+      <li>用微信开发者工具导入即可运行</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ================= 数据层 ================= */
+const KEY = 'med_patients_v1';
+const CFG = 'med_config_v1';
+
+const DRUGS = [
+  { key: 'senaparib', name: '塞纳帕利', short: '塞', cycle: 30, spec: '口服', color: 'green' },
+  { key: 'soramituximab', name: '索米妥昔单抗', short: '索', cycle: 21, spec: '输注', color: 'purple' }
+];
+const REGIMENS = {
+  soramituximab: ['单药', '联合用药', '周疗联合', '联合用药', '其他'],
+  senaparib: ['维持用药', '序贯用药', '其他', '其他']
+};
+const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const pad = n => (n < 10 ? '0' + n : '' + n);
+const fmt = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const todayStr = () => fmt(new Date());
+const parse = s => { const p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + (+n || 0)); return fmt(d); };
+const diffDays = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+const weekday = s => WEEK[parse(s).getDay()];
+const shortText = s => s ? s.slice(5).replace('-', '/') + ' ' + weekday(s) : '';
+const longText = s => { const p = s.split('-'); return p[0] + '年' + (+p[1]) + '月' + (+p[2]) + '日'; };
+const uid = () => 'p' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6);
+const getDrug = k => DRUGS.find(d => d.key === k) || DRUGS[0];
+
+
+/* ===== 姓名缩写：与小程序 utils/pinyin.js 同源 ===== */
+const RAW = {
+  a: '啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘鞍氨安俺按暗岸胺案肮昂盎凹敖熬翱袄傲奥懊澳谙坳埯拗捱揞嗷嗄嗳嗌岙犴庵廒遨媪嫒骜瑷桉獒暧砹铵锕锿鹌聱螯霭鏊鳌鏖黯',
+  b: '芭捌扒叭吧笆八疤巴拔跋靶把耙坝霸罢爸白柏百摆佰败拜稗斑班搬扳般颁板版扮拌伴瓣半办绊邦帮梆榜膀绑棒磅蚌镑傍谤苞胞包褒剥薄雹保堡饱宝抱报暴豹鲍爆杯碑悲卑北辈背贝钡倍狈备惫焙被奔苯本笨崩绷甭泵蹦迸逼鼻比鄙笔彼碧蓖蔽毕毙毖币庇痹闭敝弊必壁臂避陛鞭边编贬扁便变卞辨辩辫遍标彪膘表鳖憋别瘪彬斌濒滨宾摈兵冰柄丙秉饼炳病并玻菠播拨钵波博勃搏铂箔伯帛舶脖膊渤驳捕卜哺补埠不布步簿部怖匕孛匾俾傧勹亳禀冫阪陂邴邶弁畚坌坂苄茇荜荸菝萆葆蓓蒡薜捭摒卟吡呗哔啵嘣岜豳狴饽庳忭悖愎汴浜滗濞灞逋弼妣婊婢嬖孢骠缏缤玢璧杓槟檗殡瓿甏晡贲掰擘膑飑飙飚煲煸灬砭碚碥礴畀钚钣钯钸钹铋锛镔镖镳秕鸨鹁鹎瘢瘭癍窆裱裨褙褓褊蝙笾筚箅篦簸舭舨襞粑醭蹩趵跛跸踣龅鐾鲅鳊鳔鞴髀髌魃髟鬓犇骉',
+  c: '擦猜裁材才财睬踩采彩菜蔡餐参蚕残惭惨灿苍舱仓沧藏操糙槽曹草厕策侧册测层蹭插叉茬茶查碴搽察岔差诧拆柴豺搀掺蝉馋谗缠铲产阐颤昌猖场尝常偿肠厂敞畅唱倡超抄钞朝嘲潮巢吵炒车扯撤掣彻澈郴臣辰尘晨忱沉陈趁衬撑称城橙成呈乘程惩澄诚承逞骋秤吃痴持池迟弛驰耻齿侈尺赤翅斥炽充冲虫崇宠抽酬畴踌稠愁筹仇绸瞅丑臭初出橱厨躇锄雏滁除楚础储矗搐触处揣川穿椽传船喘串疮窗幢床闯创吹炊捶锤垂春椿醇唇淳纯蠢戳绰疵茨磁雌辞慈瓷词此刺赐次聪葱囱匆从丛凑粗醋簇促蹿篡窜摧崔催脆瘁粹淬翠村存寸磋撮搓措挫错伺畜曾椎亍丞厝伥伧侪俦傺汆冁谄谌谶陲刍鬯坼坻埕墀艹苌苁茌茈茺莼菖萃蒇蔟抻搋撺叱呲哧啐啜啻嗔嗤嘈嘬噌嚓帱岑嵯彳徂徜猝猹舛饬馇廛忖忏忡怅怆怵怊恻惝惆悴憧憷阊汊涔淙漕潺澶宸辶遄孱羼屮姹娼婵媸嫦骖骢骣绌巛琮琛璀璁璨杈杵枨枞柽楮棰槌榇槎榱樗檫殂辍辏昶晟晁觇毳氅氚敕脞腠塍膪焯爨祠禅砗碜礤眵瞠钏钗铖铳锉锸镡镩镲矬鸱鹑鹚痤瘥瘛瘳衩裎褚褫皴耖虿蚩蛏蜍蝽螭螬蟾笞篪舂舡艚艟粲糍酢酲鹾蹙踔踟踹蹉蹰蹴躔龀龊雠鲳魑黜黪',
+  d: '搭达答瘩打大呆歹傣戴带殆代贷袋待逮怠耽担丹单郸掸胆旦氮但惮淡诞弹蛋当挡党荡档刀捣蹈倒岛祷导到稻悼道盗德得的蹬灯登等瞪凳邓堤低滴迪敌笛狄涤翟嫡抵底地蒂第帝弟递缔颠掂滇碘点典靛垫电佃甸店惦奠淀殿碉叼雕凋刁掉吊钓调跌爹碟蝶迭谍叠丁盯叮钉顶鼎锭定订丢东冬董懂动栋侗恫冻洞兜抖斗陡豆逗痘都督毒犊独读堵睹赌杜镀肚度渡妒端短锻段断缎堆兑队对墩吨蹲敦顿囤钝盾遁掇哆多夺垛躲朵跺舵剁惰堕氐刂仃儋籴诋谛谠阽邸凼坫垤垌埭堞芏荻萏菪蔸耷揲甙叨呔咚咄哒哚啖啶喋嗒嘟嗲嘀噔岽岱峒嶝巅忉怛沌渎澹宕迨妲娣骀绐缍玎玷玳柢柁椟棣椴殚戥赕觌氘氡牍牒胨胴腚炖煅焘怼憝沓砀砘砥硐碓碇碡碲礅磴盹眈睇钿铎铛铞铤铥铫锝镝镦镫瓞鸫疔疸瘅癜癫窦裆裰褡耋耵聃蚪蠹笃笪箪篼簖簟簦羝纛酊趸踮蹀踱貂鲷鲽靼鞑骶髑黛黩',
+  e: '蛾峨鹅俄额讹娥恶厄扼遏鄂饿恩而儿耳尔饵洱二贰噩佴诶谔垩苊莪萼蒽摁呃愕阏迩屙婀珥轭腭铒锇锷鸸鹗颚鲕鳄',
+  f: '发罚筏伐乏阀法珐藩帆番翻樊矾钒繁凡烦反返范贩犯饭泛坊芳方肪房防妨仿访纺放菲非啡飞肥匪诽吠肺废沸费芬酚吩氛分纷坟焚汾粉奋份忿愤粪丰封枫蜂峰锋风疯烽逢冯缝讽奉凤佛否夫敷肤孵扶拂辐幅氟符伏俘服浮涪福袱弗甫抚辅俯釜斧腑府腐赴副覆赋复傅付阜父腹负富讣附妇缚咐匚俸偾匐凫阝邡郛酆垡芙芾苻茯莩菔葑蕃蘩拊呋唪幞幡狒怫悱沣淝滏瀵艴妃孚驸绂绋绯枋梵桴棼榧赙腓斐燔扉祓砜砝砩黻黼畈罘钫镄稃馥痱蚨蜉蜚蝠蝮缶篚舫翡麸趺跗蹯霏鲂鲋鲱鲼鳆鼢',
+  g: '噶嘎该改概钙盖溉干甘杆柑竿肝赶感秆敢赣冈刚钢缸肛纲岗港杠篙皋高膏羔糕搞镐稿告哥歌搁戈鸽胳疙割革葛格阁隔铬个各给根跟耕更庚羹埂耿梗工攻功恭龚供躬公宫弓巩汞拱贡共钩勾沟苟狗垢构购够辜菇咕箍估沽孤姑鼓古蛊骨谷股故顾固雇刮瓜剐寡挂褂乖拐怪棺关官冠观管馆罐惯灌贯光广逛瑰规圭硅归龟闺轨鬼诡癸桂柜跪贵刽辊滚棍锅郭国果裹过咯傀炔丐亘鬲丨睾嘏匦卦刿仡佝伽倌馘衮诂诖诟诰陔郜哿圪坩垓埚塥苷茛莞菰藁廾尬尴掴掼擀呙呷呱咣哏哽嗝帼岣崮崞犷猓庋赓汩泔淦涫澉宄遘妫媾尕尜纥绀绠绲缑缟珙枸桄栝桧梏椁槔槁橄轱戤旮旰杲晷赅觏牯牿搿虢肱胍胱膈臌彀毂戆矸硌磙瞽罡罟盥钆钴锆锢镉皈鸪鸹鹄鹳疳痼袼聒虼蚣蛄蜾蝈笱筻篝簋舸艮酐酤觚觥鲑鲠鲧鲴鳏鳜鞲鹘骼',
+  h: '蛤哈骸孩海氦亥害骇酣憨邯韩含涵寒函喊罕翰撼捍旱憾悍焊汗汉夯杭航壕嚎豪毫郝好耗号浩呵喝荷菏核禾和何合盒貉阂河涸赫褐鹤贺嘿黑痕很狠恨哼亨横衡恒轰哄烘虹鸿洪宏弘红喉侯猴吼厚候后呼乎忽瑚壶葫胡蝴狐糊湖弧虎唬护互沪户花哗华猾滑画划化话槐徊怀淮坏欢环桓还缓换患唤痪豢焕涣宦幻荒慌黄磺蝗簧皇凰惶煌晃幌恍谎灰挥辉徽恢蛔回毁悔慧卉惠晦贿秽会烩汇讳诲绘荤昏婚魂浑混豁活伙火获或惑霍货祸劐黉訇冱讧诃诙诨隍邗郇奂劾壑堠茴荟荭萑菡蒿蕙蕻薨薅藿蘅撖擐攉咴哕唿喙嗬嗥嗨嚆嚯囫圜岵後徨猢獾夥馄怙惚隳闳阍阖阚沆泓洹洄浍浒浣湟溷潢滹漶濠瀚灏寰逅逭遑彗骅绗缋缳珩珲琥璜桦桁槲轷昊曷晖晗肓胲觳烀焓煳戽扈祜恚砉盍钬铧铪锪锾镬皓瓠鹕鹱瘊癀耠顸颃颌颔颢虍虺蚝蚶蚵蟥蟪蠖笏篁篌糇翮醐醢踝斛鲎鲩鳇骺鬟麾鼾',
+  j: '击圾基机畸稽积箕肌饥迹激讥鸡姬绩缉吉极棘辑籍集及急疾汲即嫉级挤几脊己蓟技冀季伎祭剂悸济寄寂计记既忌际妓继纪嘉枷夹佳家加荚颊贾甲钾假稼价架驾嫁歼监坚尖笺间煎兼肩艰奸缄茧检柬碱硷拣捡简俭剪减荐鉴践贱见键箭件健舰剑饯渐溅涧建僵姜将浆江疆蒋桨奖讲匠酱降蕉椒礁焦胶交郊浇骄娇嚼搅铰矫侥脚狡角饺缴绞剿教酵轿较叫窖揭接皆秸街阶截劫节桔杰捷睫竭洁结解姐戒藉芥界借介疥诫届巾筋斤金今津襟紧锦仅谨进靳晋禁近烬浸尽劲荆兢茎睛晶鲸京惊精粳经井警景颈静境敬镜径痉靖竟竞净炯窘揪究纠玖韭久灸九酒厩救旧臼舅咎就疚鞠拘狙疽居驹菊局咀矩举沮聚拒据巨具距踞锯俱句惧炬剧捐鹃娟倦眷卷绢撅攫抉掘倔爵觉决诀绝均菌钧军君峻俊竣浚郡骏茄丌亟乩厥刭剞劂冂佶佼倨偈儆僭僬僦讦讵诘谏谫谲卩卺阱郏鄄矍墼艽芨芰苣苴莒荠茭茳荩菁堇菹菅葭蒺蒹蕨蕺拮挢捃掎掬搛叽咭哜唧喈啾嗟噘噍噤噱囝岌岬峤崛嵴徼狷獍獗馑廑憬阄泾浃洎洚涓湫湔蹇謇迥迦迳遽彐屐屦弪妗姣婧婕孑孓骥绛缙缣缰畿玑珏珈琚瑾枧柩桕桀桊桷楗椐楫榘榉槿橛橘殛戋戛戟戢戬炅赆赍觊觐牮犟犄犋犍毽敫肼胛胫腈腱飓齑旌爝扃恝矶碣礓睑羁蠲钅钜铗锏锔锩镌镓镢嵇稷皎鸠鹣鹪鹫疖痂瘕瘠窭衿袷裥裾皲矜耩颉虮蚧蛱蛟笈笄笕笳袈羯糨暨翦赳趄豇醮醵趼跏跻跤跽踺踽蹶觖靓霁龃隽雎鲒鲚鲛鲣鲫鞯鞫骱髻鬏麂麇',
+  k: '槛喀咖卡开揩楷凯慨刊堪勘坎砍看康慷糠扛抗亢炕考拷烤靠坷苛柯棵磕颗科壳咳可渴克刻客课肯啃垦恳坑吭空恐孔控抠口扣寇枯哭窟苦酷库裤夸垮挎跨胯块筷侩快宽款匡筐狂框矿眶旷况亏盔岿窥葵奎魁馈愧溃坤昆捆困括扩廓阔馗匮刳剀蒯伉佧侉侃倥夔诓诳隗邝郐圹垲堀芤莰蒈蒉蔻夼揆叩咔哐哙喹喟喾嗑岢崆狯忾恺恪悝悃愦闶阃溘逵尻骒纩绔缂珂琨栲轲戡暌贶犒氪胩脍龛眍睽瞌瞰钪钶铐铠铿锎锞锟锴稞疴窠裉聩颏蛞蝰蝌筘箜篑醌跬龈鲲骷髁髋髡',
+  l: '垃拉喇蜡腊辣啦莱来赖蓝婪栏拦篮阑兰澜谰揽览懒缆烂滥琅榔狼廊郎朗浪捞劳牢老佬姥酪烙涝勒乐雷镭蕾磊累儡垒擂肋类泪棱楞冷厘梨犁黎篱狸离漓理李里鲤礼莉荔吏栗丽厉励砾历利傈例俐痢立粒沥隶力璃哩俩联莲连镰廉怜涟帘敛脸链恋炼练粮凉梁粱良两辆量晾亮谅撩聊僚疗燎寥辽潦了撂镣廖料列裂烈劣猎琳林磷霖临邻鳞淋凛赁吝拎玲菱零龄铃伶羚凌灵陵岭领另令溜琉榴硫馏留刘瘤流柳六龙聋咙笼窿隆垄拢陇楼娄搂篓漏陋芦卢颅庐炉掳卤虏鲁麓碌露路赂鹿潞禄录陆戮驴吕铝侣旅履屡缕虑氯律率滤绿峦挛孪滦卵乱掠略抡轮伦仑沦纶论萝螺罗逻锣箩骡裸落洛骆络剌仂俪俚倮偻脔蠃羸冽诔郦酃坜垅垆埒塄墚苈茏苓荦莅莨蒌蓠蒗蔹蔺蓼藜奁尥捋捩摞撸叻呖呤咧唠啉啷唳喱喽嘞嘹噜囵囹岚崂崃嵝嶙徕猁猡獠廪愣懔闾阆泐泷泸泠泺洌浏涞渌溧漤漯潋漉濑澧濂寮逦逯遛遴邋娈娌嫠嫘骊骝绫绺缡缧缭珑珞琏璐枥栊栌柃栎栳栾棂椤椋楝榄榈橹檑檩殓轳轹辂辘辚瓴旯赉氇胧胪脶膂臁膦斓旒熘戾砺砻砬睐瞵詈罱罹钌铑铹铼锂锊锍锒镂镏镙镥镧稆稂鸬鸾鹂鹨鹩鹭疠疬痨瘌瘘瘰癃癞裢裣褛褴耒耢耧聆蛎蛉蜊螂蝼蠊蠡笠篥簏籁舻粝粼翎趔酹醪醴跞踉躏躐雳雒銮鎏鲈鲡鲢鲮鳓鳢髅魉鬣麟黧',
+  m: '妈麻玛码蚂马骂嘛吗埋买麦卖迈脉瞒馒蛮满蔓曼慢漫谩芒茫盲氓忙莽猫茅锚毛矛铆卯茂冒帽貌贸么玫枚梅酶霉煤没眉媒镁每美昧寐妹媚门闷们萌蒙檬盟锰猛梦孟眯醚靡糜迷谜弥米秘觅泌蜜密幂棉眠绵冕免勉娩缅面苗描瞄藐秒渺庙妙蔑灭民抿皿敏悯闽明螟鸣铭名命谬摸摹蘑模膜磨摩魔抹末莫墨默沫漠寞陌谋牟某拇牡亩姆母墓暮幕募慕木目睦牧穆乜芈仫侔袤冖冥谟谧邙劢勐坶墁茉苜茆苠茗荬莓蓦甍瞢蘼扪咩咪哞唛喵嘧幔峁岷嵋犸猕猸馍懵闵沐沔汨泖泯浼渑湎湄漭溟宀宓邈弭嫫嬷缈缗缦缪珉瑁杩杪楣殁昴暝牦耄毪脒腼朦旄焖熳祢愍懋懑淼硭礞眄眇眸瞀瞑钔钼镅镆镘秣鹋鹛瘼袂耱颟虻蛑蜢蝥螨蟒蟆蟊蠓蠛篾艋艨敉糸酩貊貘霾黾鍪鳗鳘鞔魅髦麽縻麋',
+  n: '拿哪呐钠那娜纳氖乃奶耐奈南男难囊挠脑恼闹淖呢馁内嫩能妮霓倪泥尼拟你匿腻逆溺蔫拈年碾撵捻念娘酿鸟尿捏聂孽啮镊镍涅您柠狞凝宁拧泞牛扭钮纽脓浓农弄奴努怒女暖虐疟挪懦糯诺辗廿孬鼐佞伲侬傩讷陧坭垴埝艿茑萘蘖捺搦攮咛呶哝喏喃嗫嗯囔囡狃猊猱馕忸怩甯弩妞胬嬲孥驽瑙柰楠辇昵曩肭脲腩旎恧恁硇睨钕铌铙锘镎黏疒衲耨聍颞蛲蝻臬衄袅赧蹑鲇鲵鲶',
+  o: '哦欧鸥殴藕呕偶沤讴喔噢怄瓯耦',
+  p: '辟泊脯啪趴爬帕怕琶拍排牌徘湃派攀潘盘磐盼畔判叛乓庞旁耪胖抛咆刨炮袍跑泡呸胚培裴赔陪配佩沛喷盆砰抨烹澎彭蓬棚硼篷膨朋鹏捧碰坯砒霹批披劈琵毗啤脾疲皮匹痞僻屁譬篇偏片骗飘漂瓢票撇瞥拼频贫品聘乒坪苹萍平凭瓶评屏坡泼颇婆破魄迫粕剖扑铺仆莆葡菩蒲埔朴圃普浦谱曝瀑丕丿叵剽仳俜俳匍裒谝陴邳郫鄱圮埤堋鼙芘苤葩蒎匏拚掊擗哌辔嘌嘭噗噼帔彷狍庀庖怦爿泮淠湓溥滂濮逄姘娉媲嫔嫖骈纰缥珀璞枇杷枰榀殍甓攴牝犏氆氕攵胼脬旆睥瞟罴钋钷铍锫镤镨皤疱癖袢襻疋颦蚍蜱螃螵蟛蟠笸筢翩醅蹁蹒蹼貔霈鲆',
+  q: '期欺栖戚妻七凄漆柒沏其棋奇歧畦崎脐齐旗祈祁骑起岂乞企启契砌器气迄弃汽泣讫掐恰洽牵扦钎铅千迁签仟谦乾黔钱钳前潜遣浅谴堑嵌欠歉枪呛腔羌墙蔷强抢橇锹敲悄桥瞧乔侨巧鞘撬翘峭俏窍切且怯窃钦侵亲秦琴勤芹擒禽寝沁青轻氢倾卿清擎晴氰情顷请庆琼穷秋丘邱球求囚酋泅趋区蛆曲躯屈驱渠取娶龋趣去圈颧权醛泉全痊拳犬券劝缺瘸却鹊榷确雀裙群亓劁俅俟倩佥诎诠诮谯阡邛郄劬凵巯圻芊芎芑芩芡芪苘茕茜荞荃萁萋葜葺蕖蕲蘧掮揿吣嗪嘁噙圊屺岍岐岖衢犭犰悭悛惬愀慊憔阒阕阙丬戕汔淇溱骞搴褰逑逡遒妾嫱骐绮绻缱缲琪琦璩杞桤椠楸樯槭檠樵檎辁戗耆赇觑挈氍肷朐炝祛祺悫愆憩硗碛磬磲畎钤铨锓锖锲锵镪鸲癯穹襁颀虔虬蚯蛩蛐蛴蜣蜻蜞蜷蝤螓蠼罄筇筌箐箧箝衾裘羟糗綦綮麴跫跄跷蹊謦瞿銎鲭鳅鳍鞒髂鬈麒黢黥鼽',
+  r: '然燃冉染瓤壤攘嚷让饶扰绕惹热壬仁人忍韧任认刃妊纫扔仍日戎茸蓉荣融熔溶容绒冗揉柔肉茹蠕儒孺如辱乳汝入褥软阮蕊瑞锐闰润若弱亻仞偌芮苒荛荏葚蓐蕤薷嚅嵘狨饪洳溽濡娆缛枘桡榕轫肜朊禳睿铷稔穰衽襦颥蚋蚺蝾箬糅蹂鞣髯',
+  s: '匙撒洒萨腮鳃塞赛三叁伞散桑嗓丧搔骚扫嫂瑟色涩森僧莎砂杀刹沙纱傻啥煞筛晒珊苫杉山删煽衫闪陕擅赡膳善汕扇缮墒伤商赏晌上尚裳梢捎稍烧芍勺韶少哨邵绍奢赊蛇舌舍赦摄射慑涉社设砷申呻伸身深娠绅神沈审婶甚肾慎渗声生甥牲升绳省盛剩胜圣师失狮施湿诗尸虱十石拾时什食蚀实识史矢使屎驶始式示士世柿事拭誓逝势是嗜噬适仕侍释饰氏市恃室视试收手首守寿授售受瘦兽蔬枢梳殊抒输叔舒淑疏书赎孰熟薯暑曙署蜀黍鼠属术述树束戍竖墅庶数漱恕刷耍摔衰甩帅栓拴霜双爽谁水睡税吮瞬顺舜说硕朔烁斯撕嘶思私司丝死肆寺嗣四似饲巳松耸怂颂送宋讼诵搜艘擞嗽苏酥俗素速粟僳塑溯宿诉肃酸蒜算虽隋随绥髓碎岁穗遂隧祟孙损笋蓑梭唆缩琐索锁所厦卅啬厍厮剡仨倏佘夙兕凇讪诜谂谇谡谥鄯劭叟厶塾埏垧埘埽芟苕荪莳荽莘菘菽蓍蒴蔌薮扌摅搠搡弑咝哂唢唼唰嗖嗉嗦嗍嗾噻崧嵊嵩彡狩狲狻猞飧饣馊馓忪悚愫闩氵汜沭泗涑淞渖涮溲滠澍澌潸潲濉邃妁姒姗姝娑嬗孀驷骟纟纾绱绶缌缫桫椹榫槊殇轼贳挲毵毹胂脎腧臊膻歃歙飒飕殳炻熵燧礻祀磉眚眭睃睢瞍畲钐铄铈铩铯锶锼矧秫穑鸶疝痧瘙竦耜颡蛳蜃蛸螋螫蟀蟮舐笙笥筮筲簌舢艄艏裟羧糁豉酾豕跚觞觫霎隼稣鲥鲨鲺鳋鳝麝',
+  t: '塌他它她塔獭挞蹋踏胎苔抬台泰酞太态汰坍摊贪瘫滩坛檀痰潭谭谈坦毯袒碳探叹炭汤塘搪堂棠膛唐糖倘躺淌趟烫掏涛滔绦萄桃逃淘陶讨套特藤腾疼誊梯剔踢锑提题蹄啼体替嚏惕涕剃屉天添填田甜恬舔腆挑条迢眺跳贴铁帖厅听烃汀廷停亭庭挺艇通桐酮瞳同铜彤童桶捅筒统痛偷投头透凸秃突图徒途涂屠土吐兔湍团推颓腿蜕褪退吞屯臀拖托脱鸵陀驮驼椭妥拓唾乇鼗佟佗佻倜傥僮仝氽亠邰郯坨堍荑茼莛荼萜菟葶薹抟掭忒啕嗵帑饧饨庹恸悌忝闼阗沲沱洮溻溏潼逖遢彖婷绨缇瑭韬柝梃榻樘橐殄昙暾肽豚滕炱煺祧忑忐慝砼砣町畋疃钍钛钭钽铊铴铽锬镗鹈窕裼耥覃蜓蜩螗螳笤箨羰粜酡酴醍醣趿跎跆霆龆鼍鲐鲦鳎骰餮饕髫',
+  w: '挖哇蛙洼娃瓦袜歪外豌弯湾玩顽丸烷完碗挽晚皖惋宛婉万腕汪王亡枉网往旺望忘妄威巍微危韦违桅围唯惟为潍维苇萎委伟伪尾纬未蔚味畏胃喂魏位渭谓尉慰卫瘟温蚊文闻纹吻稳紊问嗡翁瓮挝蜗涡窝我斡卧握沃巫呜钨乌污诬屋无芜梧吾吴毋武五捂午舞伍侮坞戊雾晤物勿务悟误兀刎剜罔佤仵倭偎诿阢隈邬圩圬芄芴莴菀葳蓊薇蕹呒唔囗帏帷幄崴嵬猥猬庑怃忤惘闱阌汶沩洧浯涠渥寤迕逶妩娲娓婺骛纨绾玮玟琬璺韪杌辋軎牾肟脘腽炜焐煨硪畹鹉鹜痦痿蜈蜿艉雯龌鋈鲔魍鼯',
+  x: '昔熙析西硒矽晰嘻吸锡牺稀息希悉膝夕惜熄烯溪汐犀檄袭席习媳喜铣洗系隙戏细瞎虾匣霞辖暇峡侠狭下夏吓掀锨先仙鲜纤咸贤衔舷闲涎弦嫌显险现献县腺馅羡宪陷限线相厢镶香箱襄湘乡翔祥详想响享项巷橡像向象萧硝霄削哮嚣销消宵淆晓小孝校肖啸笑效楔些歇蝎鞋协挟携邪斜胁谐写械卸蟹懈泄泻谢屑薪芯锌欣辛新忻心信衅星腥猩惺兴刑型形邢行醒幸杏性姓兄凶胸匈汹雄熊休修羞朽嗅锈秀袖绣墟戌需虚嘘须徐许蓄酗叙旭序恤絮婿绪续轩喧宣悬旋玄选癣眩绚靴薛学穴雪血勋熏循旬询寻驯巡殉汛训讯逊迅吁囟偕僖儇兮巽亵冼诩谑谖陉隰郗勖勰燮埙馨芗苋荇荀荥荨莶菥葙葸萱蓰蓿蕈薤薰藓奚揎撷擤哓咻唏岘岫峋崤徇徙狎猃獬獯饩饷馐庥庠廨忄恂悻阋泫洫洵浔浠淅渫溆渲溴潇漩瀣逍遐暹邂屣娴嬉骁骧绁绡缃缬顼玺瑕璇枭柙枵栩楦榭榍樨昕暄曛曦觋氙欷歆炫煊燹煦熹祆禊禧泶硎硖碹盱铉镟皙鸺鹇痃痫穸窨胥蚬蜥螅蟋蟓罅筅筱箫舄舾羲籼粞糈翕酰醑醯醺踅跣跹躞貅霰鑫鲞鲟鳕魈飨髹黠鼷',
+  y: '压押鸦鸭呀丫芽牙蚜崖衙涯雅哑亚讶焉咽阉烟淹盐严研蜒岩延言颜阎炎沿奄掩眼衍演艳堰燕厌砚雁唁彦焰宴谚验殃央鸯秧杨扬佯疡羊洋阳氧仰痒养样漾邀腰妖瑶摇尧遥窑谣姚咬舀药要耀椰噎耶爷野冶也页掖业叶曳腋夜液一壹医揖铱依伊衣颐夷遗移仪胰疑沂宜姨彝椅蚁倚已乙矣以艺抑易邑屹亿役臆逸肄疫亦裔意毅忆义益溢诣议谊译异翼翌绎茵荫因殷音阴姻吟银淫寅饮尹引隐印英樱婴鹰应缨莹萤营荧蝇迎赢盈影颖硬映哟拥佣臃痈庸雍踊蛹咏泳涌永恿勇用幽优悠忧尤由邮铀犹油游酉有友右佑釉诱又幼迂淤于盂榆虞愚舆余俞逾鱼愉渝渔隅予娱雨与屿禹宇语羽玉域芋郁遇喻峪御愈欲狱育誉浴寓裕预豫驭鸳渊冤元垣袁原援辕园员圆猿源缘远苑愿怨院曰约越跃钥岳粤月悦阅耘云郧匀陨允运蕴酝晕韵孕轧禺夭爻胤毓厣靥赝卣刈劓伛伢攸佚侑佾俨俣俑偃龠兖嬴讠诒谀谒谕谳邺郓郢郾鄢鄞廴壅圯垭垠垸埸堙塬墉懿芫芸苡茚茔莠莜莸莺萸菸萦蓥蓣薏弈奕尢挹揶揠揄掾撄弋吖吆呓吲呦咦咿唷喁喑嘤噫囿圄圉岈峄崦崾嵛嶷徉徭狁狳狺猗夤饫饴馀庾膺怏怿怡恹恽悒愠慵闫阈沅泱洇湮滟滢潆漪瀛瀹宥迓迤鬻妍妪妤娅媛嫣驿纡纭缢幺邕琊珧瑛琰瑜瑗璎韫杳柚桠楹樾橼檐猷殒殪轶轺昀昱晔晏曜贻觎氩氤氲牖爰刖肴胭腌腴媵欤欹於旖炀烨烊焱煜熨熠燠恙肀聿砑眢眙睚罨钇钰钺铕铘铟镒镛镱甬鸢鹆鹞鹦鹬疣痖痍瘐瘀瘗瘿瘾癔翊窈窬窳衤颍蚓蚰蚴蛘蜮蜴蝓蝣螈罂竽筵筠箢臾舁舣羿翳繇酏酽雩霪龉鼋鱿鳐鳙鞅魇餍饔黝黟鼬鼹玥垚',
+  z: '长匝砸杂栽哉灾宰载再在咱攒暂赞赃脏葬遭糟凿藻枣早澡蚤躁噪造皂灶燥责择则泽贼怎增憎赠扎喳渣札铡闸眨栅榨咋乍炸诈摘斋宅窄债寨瞻毡詹粘沾盏斩崭展蘸栈占战站湛绽樟章彰漳张掌涨杖丈帐账仗胀瘴障招昭找沼赵照罩兆肇召遮折哲蛰辙者锗蔗这浙珍斟真甄砧臻贞针侦枕疹诊震振镇阵蒸挣睁征狰争怔整拯正政帧症郑证芝枝支吱蜘知肢脂汁之织职直植殖执值侄址指止趾只旨纸志挚掷至致置帜峙制智秩稚质炙痔滞治窒中盅忠钟衷终种肿重仲众舟周州洲诌粥轴肘帚咒皱宙昼骤珠株蛛朱猪诸诛逐竹烛煮拄瞩嘱主著柱助蛀贮铸筑住注祝驻抓爪拽专砖转撰赚篆桩庄装妆撞壮状锥追赘坠缀谆准捉拙卓桌琢茁酌啄着灼浊兹咨资姿滋淄孜紫仔籽滓子自渍字鬃棕踪宗综总纵邹走奏揍租足卒族祖诅阻组钻纂嘴醉最罪尊遵昨左佐柞做作坐座卮丶仄赜仉伫侏倬偬俎冢诏诤诹诼谘谪谮谵阼陟陬郅邾鄣鄹圳埴芷苎茱荮蓁蕞奘拶揸搌摭摺撙擢攥吒咂咤哳唣唑啧啭啁帙帻幛峥崽嵫嶂徵獐夂馔忮怍惴浈洙浞渚涿潴濯迮彘咫姊妯嫜孳驵驺骓骘纣绉缁缒缜缯缵甾璋瓒杼栉柘枳栀桎桢梓棹楱楂榛槠橥樽轵轸轾辄辎臧甑昃昝贽赀赈肫胄胙胗胝朕腙膣旃炷祉祚祗祯禚恣斫砟砦磔黹眦畛罾钊钲铢铮锃锱镞镯锺雉秭稹鸩鸷鹧痄疰痣瘃瘵窀褶耔颛蚱蛭蜇螽蟑竺笊笫笮筝箦箸箴簪籀舯舳舴粢粽糌翥絷趑趱赭酎酯跖踬踯踵躅躜豸觜觯訾龇隹錾鲰鲻鳟髭麈齄'
+}
+
+let MAP = null
+
+function build() {
+  MAP = {}
+  const keys = Object.keys(RAW)
+  for (let i = 0; i < keys.length; i++) {
+    const letter = keys[i]
+    const str = RAW[letter]
+    for (let j = 0; j < str.length; j++) {
+      MAP[str.charAt(j)] = letter
+    }
+  }
+}
+
+/** 返回单个汉字的拼音首字母；非汉字返回 '' */
+function initial(ch) {
+  if (!MAP) build()
+  return MAP[ch] || ''
+}
+
+const PY_MAP_CACHE = (function () {
+  const m = {};
+  Object.keys(RAW).forEach(function (k) {
+    const str = RAW[k];
+    for (let i = 0; i < str.length; i++) m[str.charAt(i)] = k;
+  });
+  return m;
+})();
+
+const RE_CN = /[\u4e00-\u9fff]/;
+const COMPOUND = ['欧阳','司马','上官','诸葛','东方','皇甫','尉迟','公孙','慕容','长孙','宇文','司徒','司空','夏侯','令狐','端木','独孤','南宫','西门','百里','呼延','轩辕','闻人','赫连'];
+
+/* 李桂英 -> 李gy ；已经是缩写的原样返回 */
+function abbr(name) {
+  const s = String(name == null ? '' : name).replace(/\s+/g, '');
+  if (!s) return '';
+  if (!RE_CN.test(s)) return s;
+  let surnameLen = 1;
+  for (let k = 0; k < COMPOUND.length; k++) {
+    if (s.indexOf(COMPOUND[k]) === 0) { surnameLen = 2; break; }
+  }
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charAt(i);
+    if (i < surnameLen) { out += c; continue; }
+    if (/[a-zA-Z]/.test(c)) out += c.toLowerCase();
+    else if (RE_CN.test(c)) out += (PY_MAP_CACHE[c] || '');
+  }
+  return out;
+}
+
+/* 真实随访名单：来源《607随访表10.12 更新.xlsx》，共 13 位 */
+const DEMO_NAMES = ['陈美兰', '李秀英', '王小燕', '张丽华', '周文娟'];
+
+const ROSTER = [
+  { id: 's607_001', name: '季lm', doctor: '王东雁', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '联合用药', fra: 60, startDate: '2025-12-07', doses: ['2025-12-07', '2025-12-27', '2026-01-18', '2026-02-10', '2026-03-09', '2026-04-01', '2026-04-23', '2026-05-27', '2026-06-19', '2026-07-22', '2026-08-25'], remark: '单次购药量：4/4/4/4/4/4/4/4/3/3/3 支', nextManual: '' },
+  { id: 's607_002', name: '薛rl', doctor: '李晶', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 40, startDate: '2026-03-06', doses: ['2026-03-06', '2026-03-31', '2026-05-08', '2026-06-03', '2026-07-02', '2026-07-27', '2026-08-25', '2026-09-28'], remark: '单次购药量：3/4/4/3/3/3/3/3 支', nextManual: '' },
+  { id: 's607_003', name: '田xm', doctor: '林仲秋', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '联合用药', fra: 75, startDate: '2026-04-09', doses: ['2026-04-09', '2026-04-30', '2026-06-11', '2026-07-03', '2026-07-23', '2026-08-03', '2026-09-25'], remark: '单次购药量：3/3/3/3/3/3/3 支', nextManual: '' },
+  { id: 's607_004', name: '肖q', doctor: '李晶', platinumType: 'sensitive', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 95, startDate: '2026-04-21', doses: ['2026-04-21', '2026-05-15', '2026-06-10', '2026-07-09', '2026-08-05', '2026-09-01', '2026-09-30'], remark: '单次购药量：3/3/3/3/3/3/3 支', nextManual: '' },
+  { id: 's607_005', name: '孔y', doctor: '卢淮武', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 50, startDate: '2026-04-21', doses: ['2026-04-21', '2026-05-17', '2026-06-13', '2026-07-10', '2026-08-12', '2026-09-14'], remark: '单次购药量：3/3/3/3/3/3 支', nextManual: '' },
+  { id: 's607_006', name: '王y', doctor: '李晶', platinumType: 'sensitive', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 90, startDate: '2026-05-12', doses: ['2026-05-12', '2026-06-03', '2026-07-03', '2026-07-27', '2026-08-19', '2026-09-09'], remark: '单次购药量：3/3/3/3/3/3 支', nextManual: '' },
+  { id: 's607_007', name: '邱h', doctor: '姚婷婷', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 80, startDate: '2026-06-09', doses: ['2026-06-09', '2026-07-03', '2026-08-05', '2026-09-09'], remark: '单次购药量：3/3/3/3 支', nextManual: '' },
+  { id: 's607_008', name: '李gy', doctor: '李晶', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '联合用药', fra: 90, startDate: '2026-07-16', doses: ['2026-07-16', '2026-08-13', '2026-09-11', '2026-10-08'], remark: '单次购药量：3/3/3 支', nextManual: '' },
+  { id: 's607_009', name: '陈rd', doctor: '刘昀昀', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '联合用药', fra: null, startDate: '2026-07-16', doses: ['2026-07-16', '2026-08-07', '2026-08-29', '2026-09-22', '2026-10-14'], remark: '单次购药量：2/3/3/3/3 支', nextManual: '' },
+  { id: 's607_010', name: '徐ty', doctor: '李晶', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 95, startDate: '2026-08-10', doses: ['2026-08-10', '2026-09-01', '2026-09-22', '2026-10-13'], remark: '单次购药量：3/3/3/3 支', nextManual: '' },
+  { id: 's607_011', name: '杨f', doctor: '吴妙芳', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '单药', fra: 85, startDate: '2026-09-23', doses: ['2026-09-23'], remark: '单次购药量：3 支', nextManual: '' },
+  { id: 's607_012', name: '蔡l', doctor: '刘昀昀', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '联合用药', fra: 75, startDate: '2026-10-05', doses: ['2026-10-05'], remark: '单次购药量：3 支', nextManual: '' },
+  { id: 's607_013', name: '梁bl', doctor: '周晖', platinumType: 'resistant', gender: 'female', drug: 'soramituximab', cycle: 21, regimen: '联合用药', fra: 65, startDate: '2026-09-28', doses: ['2026-09-28'], remark: '单次购药量：2 支', nextManual: '' },
+];
+
+let patients = [];
+let config = { remindAhead: 3, templateId: '' };
+
+function loadData() {
+  try { patients = JSON.parse(localStorage.getItem(KEY) || 'null') || []; } catch (e) { patients = []; }
+  try { config = Object.assign({ remindAhead: 3, templateId: '' }, JSON.parse(localStorage.getItem(CFG) || 'null') || {}); } catch (e) {}
+  const hasDemo = patients.some(function (p) { return DEMO_NAMES.indexOf(p.name) >= 0; });
+  if (!localStorage.getItem(KEY) || hasDemo) seed(true);
+}
+function persist() { localStorage.setItem(KEY, JSON.stringify(patients)); }
+function persistCfg() { localStorage.setItem(CFG, JSON.stringify(config)); }
+
+function seed(silent) {
+  const cleaned = patients.filter(p => DEMO_NAMES.indexOf(p.name) < 0);
+  const ids = cleaned.map(p => p.id);
+  patients = cleaned.concat(ROSTER.filter(r => ids.indexOf(r.id) < 0).map(r => Object.assign({}, r)));
+  persist();
+  if (!silent) { render(); toast('已载入随访名单，共 ' + patients.length + ' 位'); }
+}
+
+function computeNext(p) {
+  if (p.nextManual) return p.nextManual;
+  const doses = (p.doses || []).slice().sort();
+  const cycle = +p.cycle || getDrug(p.drug).cycle;
+  if (doses.length) return addDays(doses[doses.length - 1], cycle);
+  return addDays(p.startDate || todayStr(), cycle);
+}
+
+const PLATINUM = [
+  { key: 'sensitive', label: '铂敏感' },
+  { key: 'resistant', label: '铂耐药' },
+  { key: 'unknown', label: '未评估' }
+];
+
+const AE_TERMS = ['恶心', '呕吐', '腹泻', '便秘', '食欲下降', '乏力', '皮疹', '手足综合征', '口腔黏膜炎',
+  '白细胞降低', '贫血', '血小板降低', '肝功能异常', '神经毒性', '蛋白尿', '高血压', '眼毒性', '其他'];
+const AE_GRADES = [
+  { value: 1, label: '1 级', desc: '轻度' },
+  { value: 2, label: '2 级', desc: '中度' },
+  { value: 3, label: '3 级', desc: '重度' },
+  { value: 4, label: '4 级', desc: '危重' }
+];
+const AE_ACTIONS = ['继续观察', '对症处理', '减量', '暂停用药', '停药', '住院治疗'];
+const AE_OUTCOMES = ['未缓解', '好转', '已缓解'];
+
+const DROPOUT_REASONS = ['失访', '转院 / 转诊', '自行停药', '疗效不佳 / 疾病进展', '不良反应停药', '经济原因', '死亡', '其他'];
+
+const platinumLabel = k => (PLATINUM.find(x => x.key === k) || {}).label || '';
+
+function decorate(p) {
+  const t = todayStr();
+  const drug = getDrug(p.drug);
+  const cycle = +p.cycle || drug.cycle;
+  const nextDate = computeNext(p);
+  const diff = diffDays(t, nextDate);
+  let tone = 'later', dayText = '还有 ' + diff + ' 天', statusText = '待用药';
+  if (diff < 0) { tone = 'danger'; dayText = '逾期 ' + (-diff) + ' 天'; statusText = '已逾期'; }
+  else if (diff === 0) { tone = 'today'; dayText = '今天'; statusText = '今日用药'; }
+  else if (diff <= 7) { tone = 'soon'; statusText = '本周内'; }
+  const fra = (p.fra === 0 || p.fra) ? +p.fra : null;
+  const doses = (p.doses || []).slice().sort();
+
+  // 已脱落：不再参与待办提醒
+  const isDropout = p.status === 'dropout';
+  if (isDropout) {
+    tone = 'off';
+    dayText = '已脱落';
+    statusText = p.dropoutReason || '已停止随访';
+  }
+
+  const aes = (p.aes || []).map(a => {
+    const g = AE_GRADES.find(x => x.value === +a.grade) || null;
+    return Object.assign({}, a, {
+      termsText: (a.terms || []).length ? a.terms.join('、') : '未选择类型',
+      gradeText: g ? g.label : '未分级',
+      gradeTone: +a.grade >= 3 ? 'high' : (+a.grade === 2 ? 'mid' : 'low'),
+      dateText: shortText(a.date),
+      isOpen: (a.outcome || '未缓解') !== '已缓解'
+    });
+  }).reverse();
+
+  return Object.assign({}, p, {
+    name: abbr(p.name),
+    isDropout,
+    dropoutText: p.dropoutReason || '',
+    dropoutDateText: p.dropoutDate ? shortText(p.dropoutDate) : '',
+    dropoutLabel: isDropout
+      ? ('已脱落' + (p.dropoutDate ? ' · ' + shortText(p.dropoutDate) : '') + (p.dropoutReason ? ' · ' + p.dropoutReason : ''))
+      : '在管中',
+    drugName: drug.name, drugShort: drug.short, drugColor: drug.color, drugSpec: drug.spec,
+    cycle, cycleText: cycle + ' 天/周期',
+    genderText: p.gender === 'male' ? '男' : '女',
+    hasFra: fra !== null, fraText: fra !== null ? fra + '%' : '',
+    regimenText: p.regimen || '',
+    doctorText: p.doctor || '',
+    platinumText: platinumLabel(p.platinumType),
+    isSensitive: p.platinumType === 'sensitive',
+    isResistant: p.platinumType === 'resistant',
+    isSora: p.drug === 'soramituximab',
+    nextDate, nextShort: shortText(nextDate), nextLong: longText(nextDate), nextWeekday: weekday(nextDate),
+    diff, tone, dayText, statusText,
+    lastDoseText: doses.length ? shortText(doses[doses.length - 1]) : '暂无记录',
+    doseCount: doses.length,
+    isManual: !!p.nextManual,
+    aes,
+    aeCount: aes.length,
+    aeOpenCount: aes.filter(a => a.isOpen).length,
+    aeMaxGrade: aes.reduce((m, a) => Math.max(m, +a.grade || 0), 0)
+  });
+}
+
+/* ================= 状态 ================= */
+let state = { view: 'list', tab: 'todo', id: null, aeId: null };
+let editForm = null;
+let aeForm = null;
+
+/* ================= 渲染 ================= */
+const app = document.getElementById('app');
+const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function render() {
+  if (state.view === 'list') renderList();
+  else if (state.view === 'detail') renderDetail();
+  else if (state.view === 'ae') renderAE();
+  else renderEdit();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1600);
+}
+
+/* ---------- 底部选择面板（替代 prompt，iOS 主屏模式下更稳） ---------- */
+let sheet = null;
+
+function openSheet(cfg) {
+  sheet = cfg;
+  renderSheet();
+}
+
+function closeSheet() {
+  sheet = null;
+  renderSheet();
+}
+
+function renderSheet() {
+  let el = document.getElementById('sheet');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sheet';
+    document.body.appendChild(el);
+  }
+  if (!sheet) {
+    el.className = '';
+    el.innerHTML = '';
+    return;
+  }
+  el.className = 'sheet-wrap show';
+  el.innerHTML = `
+    <div class="sheet-mask" onclick="closeSheet()"></div>
+    <div class="sheet">
+      <div class="sheet-title">${esc(sheet.title)}</div>
+      ${sheet.desc ? `<div class="sheet-desc">${esc(sheet.desc)}</div>` : ''}
+      <div class="sheet-opts">
+        ${(sheet.options || []).map((o, i) => `<div class="sheet-opt ${o.danger ? 'danger' : ''}" onclick="pickSheet(${i})">${esc(o.label)}</div>`).join('')}
+      </div>
+      <div class="sheet-cancel" onclick="closeSheet()">取消</div>
+    </div>`;
+}
+
+function pickSheet(i) {
+  const cfg = sheet;
+  const opt = cfg && cfg.options && cfg.options[i];
+  closeSheet();
+  if (opt && opt.onPick) opt.onPick();
+}
+
+/* ---------- 列表 ---------- */
+function renderList() {
+  const t = todayStr();
+  const all = patients.map(decorate);
+  const activeAll = all.filter(p => !p.isDropout);
+  const offAll = all.filter(p => p.isDropout)
+    .sort((a, b) => (a.dropoutDate && b.dropoutDate && a.dropoutDate !== b.dropoutDate)
+      ? (a.dropoutDate < b.dropoutDate ? 1 : -1)
+      : a.name.localeCompare(b.name, 'zh'));
+  const overdue = activeAll.filter(p => p.diff < 0).sort((a, b) => a.diff - b.diff);
+  const todayList = activeAll.filter(p => p.diff === 0).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+  const week = activeAll.filter(p => p.diff > 0 && p.diff <= 7).sort((a, b) => a.diff - b.diff);
+  const later = activeAll.filter(p => p.diff > 7).sort((a, b) => a.diff - b.diff);
+
+  const groups = [];
+  if (overdue.length) groups.push({ title: '已逾期未用药', tone: 'danger', items: overdue });
+  if (todayList.length) groups.push({ title: '今日应提醒', tone: 'today', items: todayList });
+  if (week.length) groups.push({ title: '7 天内待用药', tone: 'soon', items: week });
+  if (later.length) groups.push({ title: '后续随访', tone: 'later', items: later });
+  if (offAll.length) groups.push({ title: '已脱落（停止随访）', tone: 'off', items: offAll });
+
+  const viewGroups = state.tab === 'all'
+    ? (all.length ? [{ title: '全部用药人', tone: 'all', items: all.slice().sort((a, b) => a.isDropout !== b.isDropout ? (a.isDropout ? 1 : -1) : a.diff - b.diff) }] : [])
+    : (state.tab === 'todo' ? groups : []);
+
+  let html = '';
+
+  if (state.tab !== 'stats') {
+    html += `
+      <div class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="hero-title">用药随访</div>
+            <div class="hero-sub">${longText(t)} ${weekday(t)}</div>
+          </div>
+          <div class="hero-pill">在管 ${activeAll.length} 人${offAll.length ? ' · 脱落 ' + offAll.length : ''}</div>
+        </div>
+        <div class="hero-stats">
+          <div class="hs"><div class="hs-num">${todayList.length}</div><div class="hs-label">今日应提醒</div></div>
+          <div class="hs-div"></div>
+          <div class="hs"><div class="hs-num">${week.length}</div><div class="hs-label">7 天内</div></div>
+          <div class="hs-div"></div>
+          <div class="hs"><div class="hs-num ${overdue.length ? 'warn' : ''}">${overdue.length}</div><div class="hs-label">已逾期</div></div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab on">待办</div>
+        <div class="tab" onclick="switchTab('all')">患者</div>
+        <div class="tab" onclick="switchTab('stats')">统计</div>
+      </div>`;
+  } else {
+    html += `
+      <div class="hero" style="padding-bottom:24px">
+        <div class="hero-top">
+          <div>
+            <div class="hero-title">数据统计</div>
+            <div class="hero-sub">${longText(t)} ${weekday(t)}</div>
+          </div>
+          <div class="hero-pill">在管 ${all.filter(p => !p.isDropout).length} 人</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab" onclick="switchTab('todo')">待办</div>
+        <div class="tab" onclick="switchTab('all')">患者</div>
+        <div class="tab on">统计</div>
+      </div>`;
+  }
+
+  if (state.tab === 'stats') {
+    html += renderStats(all, t);
+  } else if (!viewGroups.length) {
+    html += `
+      <div class="empty">
+        <div class="empty-icon">＋</div>
+        <div class="empty-t">还没有用药记录</div>
+        <div class="empty-s">点击右下角按钮新增，或载入内置随访名单</div>
+        <div class="empty-btn" onclick="seed(false)">载入随访名单</div>
+      </div>`;
+  } else {
+    viewGroups.forEach(g => {
+      html += `<div class="group">
+        <div class="group-hd">
+          <div class="dot ${g.tone}"></div>
+          <div class="group-title">${g.title}</div>
+          <div class="group-count">${g.items.length}</div>
+        </div>
+        ${g.items.map(p => `
+          <div class="pcard ${p.isDropout ? 'is-off' : ''}" onclick="openDetail('${p.id}')">
+            <div class="pc-row">
+              <div class="avatar ${p.drugColor}">${p.drugShort}</div>
+              <div class="pc-main">
+                <div class="pc-name-row">
+                  <div class="pc-name">${esc(p.name)}</div>
+                  <div class="pc-meta">${p.genderText} · ${p.age ? p.age + '岁' : '—'}</div>
+                </div>
+                <div class="pc-drug">${p.isDropout ? p.drugName + ' · 已停止随访' : p.drugName + ' · ' + p.cycleText}</div>
+                <div class="pc-tags">
+                  ${p.isDropout ? `<span class="tag off">脱落${p.dropoutText ? ' · ' + esc(p.dropoutText) : ''}</span>` : ''}
+                  ${p.platinumText ? `<span class="tag">${p.platinumText}</span>` : ''}
+                  ${p.hasFra ? `<span class="tag fra">FRα ${p.fraText}</span>` : ''}
+                  ${p.aeOpenCount > 0 ? `<span class="tag ae">不良反应 ${p.aeOpenCount} 项在跟</span>` : ''}
+                  ${p.regimenText ? `<span class="tag regimen">${esc(p.regimenText)}</span>` : ''}
+                </div>
+              </div>
+              <div class="pc-right">
+                <div class="badge ${p.tone}">${p.dayText}</div>
+                <div class="pc-next">${p.isDropout ? (p.dropoutDateText || '—') : p.nextShort}</div>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    });
+    html += `<div class="foot-tip">下拉可刷新 · 数据保存在本机</div>`;
+  }
+
+  html += `<div class="fab" onclick="openEdit('')">＋</div>`;
+  app.innerHTML = html;
+  app.scrollTop = 0;
+}
+
+function renderStats(all, t) {
+  const n = all.length || 1;
+  const sora = all.filter(p => p.isSora);
+  const total = all.length;
+  const offList = all.filter(p => p.isDropout);
+  const activeCount = total - offList.length;
+  const activeRate = Math.round((activeCount / (total || 1)) * 100);
+  const todayCount = all.filter(p => !p.isDropout && p.diff === 0).length;
+  const overdueCount = all.filter(p => !p.isDropout && p.diff < 0).length;
+  const dropoutRows = DROPOUT_REASONS.map(r => ({
+    name: r,
+    count: offList.filter(p => (p.dropoutText || '其他') === r).length
+  })).filter(r => r.count);
+  const mk = t.slice(0, 7);
+  let monthDoses = 0;
+  patients.forEach(p => (p.doses || []).forEach(d => { if (d.slice(0, 7) === mk) monthDoses++; }));
+
+  const drugRows = DRUGS.map(d => ({
+    name: d.name,
+    count: all.filter(p => p.drug === d.key).length
+  })).filter(r => r.count);
+  const platinumRows = PLATINUM.map(pt => ({
+    name: pt.label,
+    count: all.filter(p => pt.key === 'unknown' ? !p.platinumType : p.platinumType === pt.key).length
+  })).filter(r => r.count);
+
+  const bucket = (key, label) => {
+    const c = sora.filter(p => {
+      if (p.fra === null) return key === 'none';
+      if (key === 'high') return p.fra >= 75;
+      if (key === 'mid') return p.fra >= 50 && p.fra < 75;
+      if (key === 'low') return p.fra >= 25 && p.fra < 50;
+      if (key === 'vlow') return p.fra < 25;
+      return false;
+    }).length;
+    return { name: label, count: c };
+  };
+  const fraRows = [bucket('high', '≥75%'), bucket('mid', '50%–74%'), bucket('low', '25%–49%'), bucket('vlow', '<25%'), bucket('none', '未填写')];
+  const sn = sora.length || 1;
+
+  // 不良反应汇总
+  let aeTotal = 0, aeOpen = 0, aeHigh = 0, aeMonth = 0;
+  all.forEach(p => (p.aes || []).forEach(a => {
+    aeTotal++;
+    if (a.isOpen) aeOpen++;
+    if (+a.grade >= 3) aeHigh++;
+    if ((a.date || '').slice(0, 7) === mk) aeMonth++;
+  }));
+
+  const bar = (rows, cls, denom) => rows.map(r => `
+    <div class="bar-row">
+      <div class="bar-name">${r.name}</div>
+      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${Math.round(r.count / denom * 100)}%"></div></div>
+      <div class="bar-val">${r.count} 人</div>
+    </div>`).join('');
+
+  return `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="sb-num">${activeCount}</div><div class="sb-label">在管人数</div></div>
+      <div class="stat-box"><div class="sb-num">${todayCount}</div><div class="sb-label">今日应提醒</div></div>
+      <div class="stat-box"><div class="sb-num ${overdueCount ? 'warn' : ''}">${overdueCount}</div><div class="sb-label">已逾期</div></div>
+      <div class="stat-box"><div class="sb-num">${monthDoses}</div><div class="sb-label">本月用药次数</div></div>
+    </div>
+    <div class="card sec">
+      <div class="sec-title">随访状态<span class="sec-sub">共 ${total} 位</span></div>
+      <div class="ae-stat">
+        <div class="ae-stat-box"><div class="asb-num">${activeCount}</div><div class="asb-label">在管</div></div>
+        <div class="ae-stat-box"><div class="asb-num ${offList.length ? 'warn' : ''}">${offList.length}</div><div class="asb-label">已脱落</div></div>
+        <div class="ae-stat-box"><div class="asb-num">${activeRate}%</div><div class="asb-label">在管率</div></div>
+      </div>
+      ${dropoutRows.length ? bar(dropoutRows, 'grey', offList.length || 1) : '<div class="set-note" style="margin-top:4px">暂无脱落患者。在患者详情页的「随访状态」里可标记脱落或恢复随访。</div>'}
+    </div>
+    <div class="card sec">
+      <div class="sec-title">药品结构</div>
+      ${drugRows.length ? bar(drugRows, 'green', n) : '<div class="tl-gap">暂无数据</div>'}
+    </div>
+    <div class="card sec">
+      <div class="sec-title">铂敏感 / 铂耐药</div>
+      ${platinumRows.length ? bar(platinumRows, 'teal', n) : '<div class="tl-gap">暂无数据</div>'}
+    </div>
+    <div class="card sec">
+      <div class="sec-title">不良反应随访<span class="sec-sub">${all.filter(p => p.aeCount > 0).length} 人有记录</span></div>
+      <div class="ae-stat">
+        <div class="ae-stat-box"><div class="asb-num">${aeMonth}</div><div class="asb-label">本月新增</div></div>
+        <div class="ae-stat-box"><div class="asb-num">${aeOpen}</div><div class="asb-label">在跟</div></div>
+        <div class="ae-stat-box"><div class="asb-num ${aeHigh ? 'warn' : ''}">${aeHigh}</div><div class="asb-label">≥3 级</div></div>
+        <div class="ae-stat-box"><div class="asb-num">${aeTotal}</div><div class="asb-label">累计记录</div></div>
+      </div>
+      <div class="set-note">在患者详情页可记录不良反应类型、CTCAE 分级、处理措施与转归。</div>
+    </div>
+    <div class="card sec">
+      <div class="sec-title">FRα 表达分布
+        <span class="sec-sub">已填写 ${sora.filter(p => p.fra !== null).length} / ${sora.length}</span>
+      </div>
+      ${sora.length ? bar(fraRows, 'purple', sn) : '<div class="tl-gap">暂无索米妥昔单抗患者</div>'}
+    </div>
+    <div class="card sec">
+      <div class="sec-title">提醒设置</div>
+      <div class="set-row">
+        <div class="set-label">提前提醒天数</div>
+        <input class="set-input" type="number" value="${config.remindAhead}" onchange="config.remindAhead=+this.value;persistCfg();toast('已保存')" />
+      </div>
+      <div class="set-row">
+        <div class="set-label">订阅消息模板 ID</div>
+        <input class="set-input" value="${esc(config.templateId)}" placeholder="选填" onchange="config.templateId=this.value.trim();persistCfg();toast('已保存')" />
+      </div>
+      <div class="set-note">微信推送需在服务端调用订阅消息接口；模板 ID 在微信公众平台申请后填入。</div>
+    </div>
+    <div class="card sec">
+      <div class="sec-title">备份与恢复<span class="sec-sub">数据只在本机，换手机前先导出</span></div>
+      <div class="btn-row">
+        <div class="btn ghost" onclick="exportBackup()">导出备份</div>
+        <div class="btn ghost" onclick="exportCSV()">导出表格</div>
+      </div>
+      <div class="btn-row" style="margin-top:9px">
+        <div class="btn ghost" onclick="document.getElementById('import-file').click()">从备份导入</div>
+      </div>
+      <div class="set-tip">导出备份 = 完整数据（JSON），换机或重装后用「从备份导入」恢复；导出表格 = Excel 可直接打开的 CSV。文件会存到 iPhone「文件」App 的下载项，也可以直接发到自己微信。</div>
+    </div>
+    <div class="card sec">
+      <div class="sec-title">数据管理</div>
+      <div class="btn-row">
+        <div class="btn ghost" onclick="seed(false)">载入随访名单</div>
+        <div class="btn danger-ghost" onclick="clearAll()">清空全部数据</div>
+      </div>
+    </div>
+    <div class="foot-tip">共 ${total} 位患者 · v1.2.0</div>`;
+}
+
+/* ---------- 详情 ---------- */
+function renderDetail() {
+  const p = patients.find(x => x.id === state.id);
+  if (!p) { state.view = 'list'; return render(); }
+  const d = decorate(p);
+  const doses = (p.doses || []).slice().sort();
+  const timeline = doses.map((date, i) => ({
+    date, dateText: shortText(date), label: '第 ' + (i + 1) + ' 次用药',
+    gap: i > 0 ? diffDays(doses[i - 1], date) : null
+  })).reverse();
+
+  app.innerHTML = `
+    <div class="nav">
+      <div class="nav-back" onclick="back()">‹</div>
+      <div class="nav-title">用药详情</div>
+      <div class="nav-right" onclick="openEdit('${p.id}')">编辑</div>
+    </div>
+
+    <div class="head">
+      <div class="head-top">
+        <div class="avatar">${d.drugShort}</div>
+        <div style="flex:1">
+          <div class="head-name">${esc(d.name)}</div>
+          <div class="head-meta">${d.genderText} · ${d.age ? d.age + '岁' : '年龄未填'} · ${d.drugName}</div>
+        </div>
+      </div>
+      <div class="next-box ${d.tone}">
+        <div>
+          <div class="nb-label">${d.isDropout ? '已脱落 · 停止随访' : '下次用药日期'}</div>
+          <div class="nb-date">${d.isDropout ? '不再提醒' : d.nextLong}</div>
+          <div class="nb-week">${d.isDropout ? esc(d.dropoutLabel) : d.nextWeekday + ' · ' + d.cycleText}</div>
+        </div>
+        <div class="nb-right">
+          <div class="nb-day">${d.dayText}</div>
+          <div class="nb-status">${esc(d.statusText)}</div>
+        </div>
+      </div>
+      ${d.isManual && !d.isDropout ? `<div class="manual-tip">该日期为手动顺延 <span class="manual-link" onclick="resetNext('${p.id}')">恢复</span></div>` : ''}
+    </div>
+
+    <div class="card sec">
+      <div class="sec-title">用药档案</div>
+      <div class="kv-grid">
+        <div class="kv"><div class="kv-k">铂敏感 / 铂耐药</div><div class="kv-v ${d.isResistant ? 'platinum-r' : (d.isSensitive ? 'platinum-s' : 'empty')}">${esc(d.platinumText) || '未评估'}</div></div>
+        <div class="kv"><div class="kv-k">用药周期</div><div class="kv-v">${d.cycle} 天</div></div>
+        ${d.isSora ? `<div class="kv"><div class="kv-k">FRα 表达率</div><div class="kv-v ${d.hasFra ? 'purple' : 'empty'}">${d.hasFra ? d.fraText : '未填写'}</div></div>` : ''}
+        ${d.doctorText ? `<div class="kv"><div class="kv-k">主管医生</div><div class="kv-v">${esc(d.doctorText)}</div></div>` : ''}
+        <div class="kv"><div class="kv-k">用药备注</div><div class="kv-v">${esc(d.regimenText) || '未填写'}</div></div>
+        <div class="kv"><div class="kv-k">首次用药</div><div class="kv-v">${d.startDate}</div></div>
+        <div class="kv"><div class="kv-k">末次用药</div><div class="kv-v">${d.lastDoseText}</div></div>
+        <div class="kv"><div class="kv-k">累计用药</div><div class="kv-v">${d.doseCount} 次</div></div>
+      </div>
+      ${p.remark ? `<div class="remark">备注：${esc(p.remark)}</div>` : ''}
+    </div>
+
+    <div class="card sec">
+      <div class="sec-title">随访状态<span class="sec-sub">${d.isDropout ? '已停止提醒' : '按周期提醒中'}</span></div>
+      <div class="status-row">
+        <div class="status-left">
+          <div class="status-dot ${d.isDropout ? 'off' : 'on'}"></div>
+          <div>
+            <div class="status-text">${d.isDropout ? '已脱落' : '在管随访'}</div>
+            <div class="status-note">${d.isDropout
+              ? esc((d.dropoutDateText ? '脱落于 ' + d.dropoutDateText : '') + (d.dropoutText ? (d.dropoutDateText ? ' · ' : '') + d.dropoutText : ''))
+              : '正常参与用药周期提醒'}</div>
+          </div>
+        </div>
+        <div class="status-btn ${d.isDropout ? 'on' : 'off'}" onclick="toggleDropout('${p.id}')">${d.isDropout ? '恢复随访' : '标记脱落'}</div>
+      </div>
+      ${d.isDropout ? '' : '<div class="status-tip">标记脱落 = 退出待办提醒（失访、转院、停药等），档案与历史记录都会保留，可随时恢复。</div>'}
+    </div>
+
+    <div class="card sec">
+      <div class="sec-title">记录操作</div>
+      <div class="act-grid">
+        <div class="act-cell"><div class="act primary" onclick="recordToday('${p.id}')">
+          <div class="act-icon">✓</div><div class="act-t">记录今天用药</div>
+        </div></div>
+        <div class="act-cell"><div class="act" onclick="recordCustom('${p.id}')">
+          <div class="act-icon">补</div><div class="act-t">按日期补录</div>
+        </div></div>
+        <div class="act-cell"><div class="act" onclick="postpone('${p.id}')">
+          <div class="act-icon">延</div><div class="act-t">顺延下次用药</div>
+        </div></div>
+        <div class="act-cell"><div class="act" onclick="toast('正式版可拉起微信订阅消息授权')">
+          <div class="act-icon">铃</div><div class="act-t">开启微信提醒</div>
+        </div></div>
+      </div>
+      ${d.doseCount ? `<div class="undo-row">
+        <span class="undo-text">点错了？</span>
+        <span class="undo-link" onclick="undoLastDose('${p.id}')">撤销最近一次用药</span>
+      </div>` : ''}
+    </div>
+
+    <div class="card sec">
+      <div class="sec-title">不良反应随访
+        ${d.aeCount ? `<span class="sec-sub">累计 ${d.aeCount} 次 · 在跟 ${d.aeOpenCount}</span>` : ''}
+      </div>
+      ${d.aeCount ? d.aes.map(a => `
+        <div class="ae-item" onclick="openAE('${p.id}','${a.id}')">
+          <div class="ae-row">
+            <span class="ae-grade ${a.gradeTone}">${a.gradeText}</span>
+            <span class="ae-terms">${esc(a.termsText)}</span>
+            <span class="ae-arrow">›</span>
+          </div>
+          <div class="ae-meta">${a.dateText}${a.action ? ' · ' + esc(a.action) : ''}
+            <span class="ae-outcome ${a.isOpen ? 'open' : 'done'}">${esc(a.outcome || '未缓解')}</span>
+          </div>
+          ${a.note ? `<div class="ae-note">${esc(a.note)}</div>` : ''}
+        </div>`).join('')
+        : '<div class="ae-empty">还没有不良反应记录，用药后出现不适可记一笔，下次随访接着跟</div>'}
+      <div class="ae-add" onclick="openAE('${p.id}','')">＋ 记录一次不良反应随访</div>
+    </div>
+
+    <div class="card sec">
+      <div class="sec-title">用药记录<span class="sec-sub">共 ${d.doseCount} 次</span></div>
+      ${timeline.length ? timeline.map((it, i) => `
+        <div class="tl-item">
+          <div class="tl-axis">
+            <div class="tl-dot"></div>
+            ${i !== timeline.length - 1 ? '<div class="tl-line"></div>' : ''}
+          </div>
+          <div class="tl-body">
+            <div class="tl-row">
+              <div class="tl-date">${it.dateText}</div>
+              <div class="tl-label">${it.label}</div>
+              <div class="tl-undo" onclick="undoDose('${p.id}','${it.date}')">撤销</div>
+            </div>
+            ${it.gap !== null ? `<div class="tl-gap">间隔 ${it.gap} 天</div>` : ''}
+          </div>
+        </div>`).join('') : '<div class="tl-gap" style="text-align:center;padding:16px 0">暂无用药记录</div>'}
+    </div>
+    <div style="height:24px"></div>`;
+  app.scrollTop = 0;
+}
+
+/* ---------- 表单 ---------- */
+function renderEdit() {
+  const t = todayStr();
+  if (!editForm) {
+    if (state.id) {
+      const p = patients.find(x => x.id === state.id);
+      const regimens = REGIMENS[p.drug] || [];
+      const idx = regimens.indexOf(p.regimen);
+      editForm = {
+        id: p.id, name: p.name || '', gender: p.gender || 'female',
+        age: p.age ? String(p.age) : '',
+        drug: p.drug, cycle: p.cycle || getDrug(p.drug).cycle,
+        platinumType: p.platinumType || 'unknown',
+        fra: (p.fra === 0 || p.fra) ? String(p.fra) : '',
+        regimenIndex: idx >= 0 ? idx : 0,
+        regimenCustom: idx >= 0 ? '' : (p.regimen || ''),
+        startDate: p.startDate || t, remark: p.remark || ''
+      };
+    } else {
+      editForm = {
+        id: '', name: '', gender: 'female', age: '',
+        drug: 'senaparib', cycle: 30, platinumType: 'unknown', fra: '',
+        regimenIndex: 0, regimenCustom: '', startDate: t, remark: ''
+      };
+    }
+  }
+  const regimens = REGIMENS[editForm.drug] || [];
+  const isSora = editForm.drug === 'soramituximab';
+
+  app.innerHTML = `
+    <div class="nav">
+      <div class="nav-back" onclick="back()">‹</div>
+      <div class="nav-title">${editForm.id ? '编辑记录' : '新增记录'}</div>
+    </div>
+
+    <div class="sec-title-row"><span>用药方案</span></div>
+    <div class="drug-row">
+      ${DRUGS.map(d => `
+        <div class="drug-card ${editForm.drug === d.key ? 'on ' + d.color : ''}" onclick="pickDrug('${d.key}')">
+          <div class="dc-short">${d.short}</div>
+          <div class="dc-name">${d.name}</div>
+          <div class="dc-sub">${d.spec} · ${d.cycle} 天/周期</div>
+          ${editForm.drug === d.key ? '<div class="dc-check">✓</div>' : ''}
+        </div>`).join('')}
+    </div>
+    <div class="card form-card">
+      <div class="fr">
+        <div class="fl">用药周期</div>
+        <div style="display:flex;align-items:center">
+          <input class="fi short" type="number" value="${editForm.cycle}" onchange="editForm.cycle=+this.value" />
+          <span class="unit">天</span>
+        </div>
+      </div>
+      <div class="fr-tip">选中药品后自动带出，如遇超期调整可手动修改</div>
+    </div>
+
+    <div class="sec-title-row"><span>基本信息</span></div>
+    <div class="card form-card">
+      <div class="fr">
+        <div class="fl">姓名 <span class="req">*</span></div>
+        <input class="fi" value="${esc(editForm.name)}" placeholder="如：李桂英 / 李gy" oninput="editForm.name=this.value;nameHint()" />
+      </div>
+      <div class="fr-tip" id="name-hint">${editForm.name && abbr(editForm.name) !== editForm.name ? `保存后显示为 <b style="color:#0f5132">${abbr(editForm.name)}</b>（姓 + 名字拼音首字母）` : '姓名保存时自动缩写为「姓 + 名字拼音首字母」，如 李桂英 → 李gy'}</div>
+      <div class="fr">
+        <div class="fl">性别</div>
+        <div class="seg">
+          <div class="seg-item ${editForm.gender === 'female' ? 'on' : ''}" onclick="editForm.gender='female';renderEdit()">女</div>
+          <div class="seg-item ${editForm.gender === 'male' ? 'on' : ''}" onclick="editForm.gender='male';renderEdit()">男</div>
+        </div>
+      </div>
+      <div class="fr">
+        <div class="fl">年龄</div>
+        <div style="display:flex;align-items:center">
+          <input class="fi short" type="number" value="${esc(editForm.age)}" placeholder="—" onchange="editForm.age=this.value" />
+          <span class="unit">岁</span>
+        </div>
+      </div>
+      <div class="fr">
+        <div class="fl">首次用药日期 <span class="req">*</span></div>
+        <input class="fi" type="date" value="${editForm.startDate}" onchange="editForm.startDate=this.value" style="max-width:150px" />
+      </div>
+    </div>
+
+    <div class="sec-title-row"><span>用药档案</span></div>
+    <div class="card form-card">
+      <div class="fr">
+        <div class="fl">铂敏感 / 铂耐药</div>
+        <select class="fi" onchange="editForm.platinumType=this.value" style="max-width:150px">
+          ${PLATINUM.map(pt => `<option value="${pt.key}" ${editForm.platinumType === pt.key ? 'selected' : ''}>${pt.label}</option>`).join('')}
+        </select>
+      </div>
+      ${isSora ? `
+      <div class="fr">
+        <div class="fl">FRα 表达率</div>
+        <div style="display:flex;align-items:center">
+          <input class="fi short" type="number" min="0" max="100" value="${esc(editForm.fra)}" placeholder="0–100" onchange="editForm.fra=this.value" />
+          <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="chips">
+        ${[10, 25, 50, 75, 90].map(v => `<div class="chip" onclick="editForm.fra='${v}';renderEdit()">${v}%</div>`).join('')}
+      </div>
+      ` : ''}
+      <div class="fr">
+        <div class="fl">用药备注</div>
+        <select class="fi" onchange="editForm.regimenIndex=+this.value" style="max-width:160px">
+          ${regimens.map((r, i) => `<option value="${i}" ${editForm.regimenIndex === i ? 'selected' : ''}>${r}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fr">
+        <div class="fl">自定义备注</div>
+        <input class="fi" value="${esc(editForm.regimenCustom)}" placeholder="选填，覆盖上方选择" onchange="editForm.regimenCustom=this.value" />
+      </div>
+      <div class="fr-tip">${isSora
+        ? 'FRα 表达率是该药分层的关键指标，按最近一次病理/检测报告填写'
+        : '塞纳帕利为 口服，30 天为一个用药周期'}</div>
+    </div>
+
+    <div class="sec-title-row"><span>备注</span></div>
+    <div class="card form-card">
+      <textarea class="ta" placeholder="如：商保直付需提前预约、既往不良反应、家属联系方式等" onchange="editForm.remark=this.value">${esc(editForm.remark)}</textarea>
+    </div>
+
+    ${editForm.id ? '<div class="danger-zone"><div class="dz-btn" onclick="removePatient()">删除该记录</div></div>' : ''}
+    <div class="form-space"></div>
+
+    <div class="footer"><div class="save-btn" onclick="savePatient()">保存</div></div>`;
+  app.scrollTop = 0;
+}
+
+/* ---------- 不良反应随访 ---------- */
+function openAE(pid, aeId) {
+  state.id = pid;
+  state.aeId = aeId || '';
+  aeForm = null;
+  state.view = 'ae';
+  render();
+}
+
+function renderAE() {
+  const p = patients.find(x => x.id === state.id);
+  if (!p) { state.view = 'list'; return render(); }
+  const d = decorate(p);
+  if (!aeForm) {
+    const ae = state.aeId ? (p.aes || []).find(a => a.id === state.aeId) : null;
+    const terms = (ae && ae.terms) || [];
+    aeForm = {
+      id: (ae && ae.id) || '',
+      date: (ae && ae.date) || todayStr(),
+      terms: AE_TERMS.map(n => ({ name: n, on: terms.indexOf(n) >= 0 })),
+      grade: ae ? +ae.grade : 0,
+      action: (ae && ae.action) || AE_ACTIONS[0],
+      outcome: (ae && ae.outcome) || '未缓解',
+      note: (ae && ae.note) || ''
+    };
+  }
+  const f = aeForm;
+
+  app.innerHTML = `
+    <div class="nav">
+      <div class="nav-back" onclick="backDetail()">‹</div>
+      <div class="nav-title">${f.id ? '编辑不良反应' : '不良反应随访'}</div>
+    </div>
+
+    <div style="padding:16px 18px 2px">
+      <div style="font-size:20px;font-weight:700;color:#0f5132">${esc(d.name)}</div>
+      <div style="font-size:12px;color:#8a9a93;margin-top:4px">${d.drugName} · 不良反应随访</div>
+    </div>
+
+    <div class="sec-title-row"><span>随访日期</span></div>
+    <div class="card form-card">
+      <div class="fr">
+        <div class="fl">出现 / 随访日期</div>
+        <input class="fi" type="date" value="${f.date}" onchange="aeForm.date=this.value" style="max-width:150px" />
+      </div>
+    </div>
+
+    <div class="sec-title-row"><span>不良反应（可多选）</span></div>
+    <div class="card form-card">
+      <div class="ae-chips">
+        ${f.terms.map((t, i) => `<div class="ae-chip ${t.on ? 'on' : ''}" onclick="toggleAETerm(${i})">${t.name}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="sec-title-row"><span>严重程度（CTCAE）</span></div>
+    <div class="card form-card">
+      <div class="grade-row">
+        ${AE_GRADES.map(g => `
+          <div class="grade-item g${g.value} ${f.grade === g.value ? 'on' : ''}" onclick="aeForm.grade=${g.value};renderAE()">
+            <div class="gi-label">${g.label}</div>
+            <div class="gi-desc">${g.desc}</div>
+          </div>`).join('')}
+      </div>
+      <div class="fr-tip">1–2 级多为对症处理后可继续用药；3 级以上需评估减量、暂停或停药</div>
+    </div>
+
+    <div class="sec-title-row"><span>处理措施</span></div>
+    <div class="card form-card">
+      <div class="ae-chips">
+        ${AE_ACTIONS.map(a => `<div class="ae-chip single ${f.action === a ? 'on' : ''}" onclick="aeForm.action='${a}';renderAE()">${a}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="sec-title-row"><span>转归</span></div>
+    <div class="card form-card">
+      <div class="seg" style="margin:14px 0">
+        ${AE_OUTCOMES.map(o => `<div class="seg-item" style="flex:1;width:auto;${f.outcome === o ? 'background:#fff;color:#0f5132;font-weight:600' : ''}" onclick="aeForm.outcome='${o}';renderAE()">${o}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="sec-title-row"><span>随访备注</span></div>
+    <div class="card form-card">
+      <textarea class="ta" placeholder="如：已予止吐处理，嘱 3 天后电话随访" onchange="aeForm.note=this.value">${esc(f.note)}</textarea>
+    </div>
+
+    ${f.id ? '<div class="danger-zone"><div class="dz-btn" onclick="deleteAE()">删除这条记录</div></div>' : ''}
+    <div class="form-space"></div>
+
+    <div class="footer"><div class="save-btn" onclick="saveAE()">保存</div></div>`;
+  app.scrollTop = 0;
+}
+
+function toggleAETerm(i) {
+  aeForm.terms[i].on = !aeForm.terms[i].on;
+  renderAE();
+}
+
+function saveAE() {
+  const picked = aeForm.terms.filter(t => t.on).map(t => t.name);
+  if (!picked.length) return toast('请至少选择一项不良反应');
+  if (!aeForm.grade) return toast('请选择严重程度');
+  if (!aeForm.date) return toast('请选择随访日期');
+  const p = patients.find(x => x.id === state.id);
+  if (!p.aes) p.aes = [];
+  const rec = {
+    id: aeForm.id || ('a' + Date.now().toString(36)),
+    date: aeForm.date,
+    terms: picked,
+    grade: aeForm.grade,
+    action: aeForm.action,
+    outcome: aeForm.outcome,
+    note: (aeForm.note || '').trim()
+  };
+  const idx = p.aes.findIndex(x => x.id === rec.id);
+  if (idx >= 0) p.aes[idx] = rec; else p.aes.push(rec);
+  p.aes.sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  persist();
+  aeForm = null;
+  state.view = 'detail';
+  render();
+  toast('已保存');
+}
+
+function deleteAE() {
+  if (!confirm('将删除这条不良反应随访记录，不可恢复。')) return;
+  const p = patients.find(x => x.id === state.id);
+  p.aes = (p.aes || []).filter(x => x.id !== aeForm.id);
+  persist();
+  aeForm = null;
+  state.view = 'detail';
+  render();
+  toast('已删除');
+}
+
+function backDetail() {
+  aeForm = null;
+  state.view = 'detail';
+  render();
+}
+
+function nameHint() {
+  const el = document.getElementById('name-hint');
+  if (!el) return;
+  const v = (editForm.name || '').trim();
+  el.innerHTML = (v && abbr(v) !== v)
+    ? `保存后显示为 <b style="color:#0f5132">${abbr(v)}</b>（姓 + 名字拼音首字母）`
+    : '姓名保存时自动缩写为「姓 + 名字拼音首字母」，如 李桂英 → 李gy';
+}
+
+
+/* ================= 备份与恢复 ================= */
+function downloadFile(name, text, mime) {
+  const blob = new Blob([text], { type: mime + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.rel = 'noopener';
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 4000);
+  toast('已导出 ' + name);
+}
+
+function exportBackup() {
+  const data = {
+    app: 'med-followup', version: 2, exportedAt: new Date().toISOString(),
+    config: config, patients: patients
+  };
+  downloadFile('用药随访备份-' + todayStr() + '.json', JSON.stringify(data, null, 2), 'application/json');
+}
+
+function csvCell(v) {
+  const t = v == null ? '' : String(v);
+  return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+function exportCSV() {
+  const head = ['姓名', '随访状态', '脱落日期', '脱落原因', '性别', '年龄', '药品', '周期(天)', '铂类型', 'FRα(%)', '主管医生',
+    '首次用药', '末次用药', '用药次数', '下次用药', '不良反应次数', '在跟项数', '治疗备注'];
+  const rows = patients.map(function (p) {
+    const d = decorate(p);
+    return [p.name, d.isDropout ? '已脱落' : '在管', p.dropoutDate || '', p.dropoutReason || '',
+      d.genderText, p.age ? p.age : '', d.drugName, d.cycle,
+      d.platinumText, d.hasFra ? d.fraText : '', d.doctorText,
+      p.startDate || '', d.lastDoseText, d.doseCount, d.nextDate,
+      d.aeCount, d.aeOpenCount, p.regimen || p.remark || ''];
+  });
+  const csv = '\ufeff' + [head].concat(rows).map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+  downloadFile('用药随访名单-' + todayStr() + '.csv', csv, 'text/csv');
+}
+
+function fixPatient(raw) {
+  const p = Object.assign({}, raw);
+  if (!p.id) p.id = uid();
+  p.name = abbr(p.name || '');
+  if (!p.drug) p.drug = 'senaparib';
+  if (!Array.isArray(p.doses)) p.doses = p.startDate ? [p.startDate] : [];
+  if (!Array.isArray(p.aes)) p.aes = [];
+  if (!p.status) p.status = 'active';
+  if (!p.platinumType) {
+    p.platinumType = p.platinum === '是' ? 'resistant' : (p.platinum === '否' ? 'sensitive' : 'unknown');
+  }
+  delete p.platinum; delete p.insurance; delete p.phone;
+  return p;
+}
+
+function doImport(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = function () {
+    let add = 0, upd = 0;
+    try {
+      const obj = JSON.parse(rd.result);
+      const list = Array.isArray(obj) ? obj : (obj && obj.patients);
+      if (!Array.isArray(list) || !list.length) throw new Error('文件里没有患者记录');
+      list.forEach(function (raw) {
+        if (!raw || !raw.name) return;
+        const p = fixPatient(raw);
+        const i = patients.findIndex(function (x) { return x.id === p.id; });
+        if (i >= 0) { patients[i] = Object.assign({}, patients[i], p); upd++; }
+        else { patients.push(p); add++; }
+      });
+      persist(); render();
+      alert('导入完成\n新增 ' + add + ' 位，更新 ' + upd + ' 位\n当前共 ' + patients.length + ' 位');
+    } catch (err) {
+      alert('导入失败：' + err.message);
+    }
+    input.value = '';
+  };
+  rd.readAsText(f, 'utf-8');
+}
+
+/* ================= 交互 ================= */
+function switchTab(t) { state.tab = t; state.view = 'list'; render(); }
+function openDetail(id) { state.id = id; state.view = 'detail'; render(); }
+function openEdit(id) { state.id = id || ''; editForm = null; state.view = 'edit'; render(); }
+function back() { editForm = null; state.view = 'list'; render(); }
+function pickDrug(k) { editForm.drug = k; editForm.cycle = getDrug(k).cycle; editForm.regimenIndex = 0; editForm.regimenCustom = ''; renderEdit(); }
+
+function recordToday(id) {
+  const t = todayStr();
+  const p = patients.find(x => x.id === id);
+  if (p.status === 'dropout') return toast('该患者已标记脱落，请先在「随访状态」恢复随访');
+  if ((p.doses || []).indexOf(t) >= 0) return toast('今天已经记录过了');
+  p.doses = (p.doses || []).concat(t).sort();
+  p.nextManual = '';
+  persist(); renderDetail(); toast('已记录 ' + t + ' 用药，可撤销');
+}
+
+function recordCustom(id) {
+  const p = patients.find(x => x.id === id);
+  if (p.status === 'dropout') return toast('该患者已标记脱落，请先恢复随访');
+  const d = prompt('请输入实际用药日期（YYYY-MM-DD）', todayStr());
+  if (!d) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return toast('日期格式应为 2026-11-03');
+  p.doses = (p.doses || []).concat(d).sort();
+  p.nextManual = '';
+  persist(); renderDetail(); toast('已补录 ' + d + '，可撤销');
+}
+
+/* ---------- 用药记录纠错 ---------- */
+function removeDose(id, date) {
+  const p = patients.find(x => x.id === id);
+  if (!p) return;
+  p.doses = (p.doses || []).filter(d => d !== date);
+  p.nextManual = '';
+  persist(); renderDetail(); toast('已撤销 ' + date);
+}
+
+function undoLastDose(id) {
+  const p = patients.find(x => x.id === id);
+  const doses = (p.doses || []).slice().sort();
+  if (!doses.length) return toast('暂无可撤销的记录');
+  undoDose(id, doses[doses.length - 1]);
+}
+
+function undoDose(id, date) {
+  openSheet({
+    title: '撤销这条用药记录',
+    desc: date + ' 的记录将被删除，下次用药日期会按剩余记录重算。',
+    options: [{ label: '确认撤销', danger: true, onPick: function () { removeDose(id, date); } }]
+  });
+}
+
+/* ---------- 脱落 / 恢复 ---------- */
+function toggleDropout(id) {
+  const p = patients.find(x => x.id === id);
+  if (p.status === 'dropout') {
+    openSheet({
+      title: '恢复随访',
+      desc: '恢复后会重新按周期提醒该患者。',
+      options: [{
+        label: '恢复随访',
+        onPick: function () {
+          p.status = 'active';
+          p.dropoutDate = '';
+          p.dropoutReason = '';
+          persist(); renderDetail(); toast('已恢复随访');
+        }
+      }]
+    });
+    return;
+  }
+  openSheet({
+    title: '标记为脱落',
+    desc: '选择脱落原因。档案与历史用药记录都会保留，可随时恢复。',
+    options: DROPOUT_REASONS.map(function (r) {
+      return {
+        label: r,
+        onPick: function () {
+          p.status = 'dropout';
+          p.dropoutDate = todayStr();
+          p.dropoutReason = r;
+          persist(); renderDetail(); toast('已标记脱落 · ' + r);
+        }
+      };
+    })
+  });
+}
+
+function postpone(id) {
+  const n = prompt('顺延下次用药天数', '3');
+  if (!n) return;
+  const days = +n;
+  if (!days || days <= 0) return toast('请输入正确的天数');
+  const p = patients.find(x => x.id === id);
+  p.nextManual = addDays(computeNext(p), days);
+  persist(); renderDetail(); toast('已顺延 ' + days + ' 天');
+}
+
+function resetNext(id) {
+  const p = patients.find(x => x.id === id);
+  p.nextManual = '';
+  persist(); renderDetail(); toast('已按周期重新计算');
+}
+
+function savePatient() {
+  if (!editForm.name.trim()) return toast('请填写姓名');
+  if (!editForm.startDate) return toast('请选择首次用药日期');
+  const cycle = +editForm.cycle;
+  if (!cycle || cycle <= 0 || cycle > 365) return toast('用药周期需在 1–365 天');
+  if (editForm.fra !== '' && (+editForm.fra < 0 || +editForm.fra > 100)) return toast('FRα 表达应为 0–100');
+
+  const isSora = editForm.drug === 'soramituximab';
+  const regimens = REGIMENS[editForm.drug] || [];
+  const regimenFinal = isSora
+    ? (editForm.regimenCustom.trim() || regimens[editForm.regimenIndex] || '')
+    : (editForm.regimenCustom.trim() || regimens[editForm.regimenIndex] || '');
+
+  if (editForm.id) {
+    const p = patients.find(x => x.id === editForm.id);
+    const old = Object.assign({}, p);
+    Object.assign(p, {
+      name: abbr(editForm.name), gender: editForm.gender,
+      age: editForm.age === '' ? null : +editForm.age,
+      drug: editForm.drug, cycle, platinumType: editForm.platinumType,
+      fra: isSora && editForm.fra !== '' ? +editForm.fra : null,
+      regimen: regimenFinal, remark: editForm.remark, startDate: editForm.startDate
+    });
+    if (old.startDate !== editForm.startDate && (p.doses || []).length === 1 && p.doses[0] === old.startDate) {
+      p.doses = [editForm.startDate];
+    }
+  } else {
+    patients.push({
+      id: uid(), name: abbr(editForm.name), gender: editForm.gender,
+      age: editForm.age === '' ? null : +editForm.age,
+      drug: editForm.drug, cycle, platinumType: editForm.platinumType,
+      fra: isSora && editForm.fra !== '' ? +editForm.fra : null,
+      regimen: regimenFinal, remark: editForm.remark,
+      startDate: editForm.startDate, doses: [editForm.startDate], nextManual: '', aes: []
+    });
+  }
+  persist();
+  editForm = null; state.view = 'list';
+  render(); toast('已保存');
+}
+
+function removePatient() {
+  if (!confirm('将同时删除该记录的全部用药记录，确认删除？')) return;
+  patients = patients.filter(x => x.id !== editForm.id);
+  persist(); editForm = null; state.view = 'list';
+  render(); toast('已删除');
+}
+
+function clearAll() {
+  if (!confirm('将删除本机全部记录，且无法恢复。')) return;
+  patients = []; persist(); render(); toast('已清空');
+}
+
+/* 时钟 */
+function tick() {
+  const d = new Date();
+  document.getElementById('clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+setInterval(tick, 20000);
+
+/* 启动 */
+tick();
+loadData();
+render();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+}
+// 禁止双指缩放，贴近原生 App 手感
+document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+</script>
+</body>
+</html>
